@@ -1,40 +1,50 @@
-import re
-from .pii_removal import remove_pii
-from .feature_extraction import extract_features
+from datetime import datetime
 
 
-def normalize_text(text: str):
+def calculate_layer0_confidence(features):
 
-    text = text.lower()
+    score = 0
 
-    # remove extra spaces
-    text = re.sub(r"\s+", " ", text)
+    if features.get("has_url"):
+        score += 0.2
 
-    return text.strip()
+    if features.get("has_urgent_words"):
+        score += 0.2
+
+    if features.get("has_sensitive_keywords"):
+        score += 0.3
+
+    if features.get("has_numbers"):
+        score += 0.1
+
+    score += min(features.get("length", 0) / 100, 0.2)
+
+    return round(min(score, 1.0), 2)
 
 
-# 🔹 Main Layer 0 processor
-def process_privacy_layer(input_data):
+def process_privacy_layer(data):
 
-    # Skip media inputs
-    if input_data["type"] in ["image", "audio", "video"]:
-        return input_data
+    text = data.get("content", "")
 
-    text = input_data["content"]
+    clean_text = text.lower()
 
-    # Step 1: Remove PII
-    clean_text = remove_pii(text)
+    features = {
+        "length": len(clean_text),
+        "has_url": "http" in clean_text,
+        "has_urgent_words": any(word in clean_text for word in ["urgent", "immediately"]),
+        "has_sensitive_keywords": any(word in clean_text for word in ["otp", "password", "card"]),
+        "has_numbers": any(char.isdigit() for char in clean_text)
+    }
 
-    # Step 2: Normalize
-    normalized_text = normalize_text(clean_text)
-
-    # Step 3: Feature extraction
-    features = extract_features(normalized_text)
+    confidence = calculate_layer0_confidence(features)
 
     return {
-        "type": input_data["type"],
+        "type": "text",
         "original_text": text,
-        "clean_text": normalized_text,
+        "clean_text": clean_text,
         "features": features,
-        "metadata": input_data["metadata"]
+        "confidence": confidence,
+        "metadata": {
+            "timestamp": str(datetime.now())
+        }
     }
