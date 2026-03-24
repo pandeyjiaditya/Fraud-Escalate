@@ -7,43 +7,35 @@ from .urgency_rules import check_urgency
 
 def run_heuristics(data):
 
-    if data["type"] in ["image", "audio", "video"]:
-        return {"heuristic_score": 0, "flags": []}
-
     text = data["clean_text"]
 
+    score = 0
     flags = []
 
-    # Run all rules
-    flags += check_phishing(text)
-    flags += check_credentials(text)
-    flags += check_url(text)
-    flags += check_intent(text)
-    flags += check_urgency(text)
+    if "urgent" in text:
+        score += 30
+        flags.append("urgency")
 
-    flags = list(set(flags))
+    if "otp" in text or "password" in text:
+        score += 40
+        flags.append("credential_theft")
 
-    # 🔥 Advanced scoring
-    score = 0
+    if "http" in text:
+        score += 30
+        flags.append("suspicious_url")
 
-    scoring_map = {
-        "strong_phishing": 50,
-        "phishing": 30,
-        "credential_theft": 50,
-        "suspicious_url": 40,
-        "long_url": 10,
-        "financial_intent": 20,
-        "urgency": 20
-    }
-
-    for flag in flags:
-        score += scoring_map.get(flag, 0)
-
-    # 🔥 Bonus rule (multi-signal attack)
-    if "urgency" in flags and "credential_theft" in flags:
+    if "bank" in text or "account" in text:
         score += 20
+        flags.append("financial_intent")
+
+    if "suspended" in text or "blocked" in text:
+        score += 30
+        flags.append("strong_phishing")
+
+    confidence = min(score / 150, 1.0)
 
     return {
         "heuristic_score": score,
-        "flags": flags
+        "flags": flags,
+        "confidence": round(confidence, 2)
     }
