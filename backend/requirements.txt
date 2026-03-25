@@ -16,3 +16,5 @@ python-docx
 tldextract
 librosa
 python-dotenv
+openai-whisper
+ffmpeg-python

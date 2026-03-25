@@ -1,7 +1,11 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, UploadFile, File
+import shutil
+import os
+from pathlib import Path
+import subprocess
 
 # Input Layer
-from input_layer.input_handler import process_text_input
+from input_layer.input_handler import process_text_input, process_file_input
 
 # Layer 0
 from layer0_privacy.normalization import process_privacy_layer
@@ -93,3 +97,88 @@ def analyze(text: str):
         "final": final_output,
         "layer3": llm_output
     }
+
+
+# -----------------------------
+# FILE UPLOAD ENDPOINT (For Audio, PDF, DOCX, etc.)
+# -----------------------------
+@app.post("/analyze-file")
+async def analyze_file(file: UploadFile = File(...)):
+    """
+    Analyze uploaded file (audio, PDF, DOCX, TXT).
+    Audio files are automatically transcribed using Whisper.
+    """
+    # Create temp directory if it doesn't exist
+    temp_dir = Path("temp_uploads")
+    temp_dir.mkdir(exist_ok=True)
+
+    # Save uploaded file temporarily
+    file_path = temp_dir / file.filename
+    try:
+        with open(file_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+
+        # Process the file
+        input_data = process_file_input(str(file_path))
+
+        # If the input is not audio/image/video, it should have content as text
+        if input_data["type"] in ["audio_transcribed", "text", "url", "email"]:
+            text_content = input_data["content"]
+
+            # 🔹 Step 2: Layer 0 (Privacy + Features)
+            layer0_output = process_privacy_layer(input_data)
+
+            # 🔹 Step 3: Layer 1 (Heuristic Detection)
+            layer1_output = run_heuristics(layer0_output)
+            heuristic_score = layer1_output.get("heuristic_score", 0)
+
+            # 🔥 Step 4: Smart Routing for ML
+            if heuristic_score >= 120:
+                layer2_output = {
+                    "ml_probability": 1.0,
+                    "ml_prediction": "fraud",
+                    "confidence": 1.0,
+                    "note": "Skipped ML (high risk from heuristics)"
+                }
+
+            elif heuristic_score <= 20:
+                layer2_output = {
+                    "ml_probability": 0.0,
+                    "ml_prediction": "safe",
+                    "confidence": 1.0,
+                    "note": "Skipped ML (low risk from heuristics)"
+                }
+
+            else:
+                layer2_output = run_ml_model(layer0_output)
+
+            # 🔹 Step 5: Risk Engine (Final Decision)
+            final_output = make_decision(layer1_output, layer2_output)
+
+            # 🔹 Step 6: Layer 3 (LLM Explanation)
+            llm_output = run_llm(
+                text=layer0_output.get("clean_text", ""),
+                layer1=layer1_output,
+                layer2=layer2_output,
+                final=final_output
+            )
+
+            return {
+                "input": input_data,
+                "layer0": layer0_output,
+                "layer1": layer1_output,
+                "layer2": layer2_output,
+                "final": final_output,
+                "layer3": llm_output
+            }
+        else:
+            # For image/video, return basic info (no fraud analysis yet)
+            return {
+                "input": input_data,
+                "message": f"{input_data['type']} processing not yet implemented"
+            }
+
+    finally:
+        # Cleanup: Remove temporary file
+        if file_path.exists():
+            file_path.unlink()

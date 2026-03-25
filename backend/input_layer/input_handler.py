@@ -2,6 +2,7 @@ from datetime import datetime
 
 from .file_segregator import detect_input_type
 from .file_readers import read_txt, read_pdf, read_docx
+from .audio_transcription import transcribe_audio_file
 
 
 def process_text_input(data: str):
@@ -20,7 +21,7 @@ def process_text_input(data: str):
 
 def process_file_input(file_path: str):
     file_path_lower = file_path.lower()
-    
+
     # Image detection
     if file_path_lower.endswith((".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp")):
         return {
@@ -28,7 +29,7 @@ def process_file_input(file_path: str):
             "content": file_path,
             "metadata": {"timestamp": str(datetime.now())}
         }
-        
+
     # Video detection
     elif file_path_lower.endswith((".mp4", ".avi", ".mov", ".mkv", ".webm")):
         return {
@@ -36,15 +37,23 @@ def process_file_input(file_path: str):
             "content": file_path,
             "metadata": {"timestamp": str(datetime.now())}
         }
-        
-    # Audio detection
-    elif file_path_lower.endswith((".mp3", ".wav", ".flac", ".aac", ".ogg")):
+
+    # Audio detection - Transcribe and process as text
+    elif file_path_lower.endswith((".mp3", ".wav", ".flac", ".aac", ".ogg", ".m4a", ".wma")):
+        print(f"Processing audio file: {file_path}")
+        transcribed_text = transcribe_audio_file(file_path)
+        print(f"Audio transcribed successfully: {len(transcribed_text)} characters")
+
+        # Process transcribed text through the same pipeline
         return {
-            "type": "audio",
-            "content": file_path,
-            "metadata": {"timestamp": str(datetime.now())}
+            "type": "audio_transcribed",
+            "content": transcribed_text,
+            "metadata": {
+                "timestamp": str(datetime.now()),
+                "original_file": file_path
+            }
         }
-        
+
     if file_path_lower.endswith(".txt"):
         content = read_txt(file_path)
     elif file_path_lower.endswith(".pdf"):

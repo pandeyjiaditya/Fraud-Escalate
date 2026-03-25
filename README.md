@@ -6,7 +6,8 @@ A multi-layer AI-powered fraud detection backend built with **FastAPI**. It anal
 
 ## 🚀 Features
 
-- **Multi-modal input support** — text, PDF, DOCX, images, audio, and video
+- **Multi-modal input support** — text, PDF, DOCX, images, **audio** (with Whisper transcription), and video
+- **Audio-to-Text** — Automatic transcription using OpenAI's Whisper model (supports MP3, WAV, FLAC, AAC, OGG, M4A, WMA)
 - **Privacy-first** — PII stripped before any analysis (emails, Aadhaar, PAN, IFSC, card numbers, OTPs)
 - **Rule-based heuristics** — fast, interpretable fraud signal detection
 - **Smart ML routing** — ML model only invoked when heuristic score is ambiguous
@@ -96,27 +97,46 @@ Final JSON Response
 
 ### Decision Thresholds
 
-| Risk Score | Decision  |
-|-----------|-----------|
-| 0 – 30    | ✅ ALLOW   |
-| 31 – 60   | 👁️ MONITOR |
-| 61 – 80   | 🔍 REVIEW  |
-| 81 – 100  | 🚫 BLOCK   |
+| Risk Score | Decision   |
+| ---------- | ---------- |
+| 0 – 30     | ✅ ALLOW   |
+| 31 – 60    | 👁️ MONITOR |
+| 61 – 80    | 🔍 REVIEW  |
+| 81 – 100   | 🚫 BLOCK   |
 
 ---
 
 ## 🔌 API Endpoints
 
-| Method | Endpoint   | Description                  |
-|--------|-----------|------------------------------|
-| GET    | `/`        | Health check                 |
-| GET    | `/health`  | Status check                 |
-| POST   | `/analyze` | Run full fraud detection pipeline |
+| Method | Endpoint        | Description                                      |
+| ------ | --------------- | ------------------------------------------------ |
+| GET    | `/`             | Health check                                     |
+| GET    | `/health`       | Status check                                     |
+| POST   | `/analyze`      | Analyze text input                               |
+| POST   | `/analyze-file` | Upload and analyze files (audio, PDF, DOCX, TXT) |
 
-### Example Request
+### Example Request (Text)
 
 ```bash
 curl -X POST "http://127.0.0.1:8000/analyze?text=Your+account+has+been+compromised+click+here+to+verify+your+OTP"
+```
+
+### Example Request (Audio File)
+
+```bash
+curl -X POST "http://127.0.0.1:8000/analyze-file" \
+  -F "file=@suspicious_call.mp3"
+```
+
+**Python Example:**
+
+```python
+import requests
+
+with open("audio_message.mp3", "rb") as f:
+    files = {"file": ("audio.mp3", f, "audio/mpeg")}
+    response = requests.post("http://127.0.0.1:8000/analyze-file", files=files)
+    print(response.json())
 ```
 
 ### Example Response
@@ -136,16 +156,17 @@ curl -X POST "http://127.0.0.1:8000/analyze?text=Your+account+has+been+compromis
 
 ## 🧰 Tech Stack
 
-| Category        | Libraries / Tools                                  |
-|-----------------|----------------------------------------------------|
-| API Framework   | FastAPI, Uvicorn                                   |
-| ML / NLP        | scikit-learn, XGBoost, Transformers, PyTorch       |
-| LLM             | Ollama (Mistral, local)                            |
-| Privacy / PII   | Presidio Analyzer & Anonymizer, regex              |
-| File Parsing    | pdfplumber, python-docx                            |
-| Audio           | librosa                                            |
-| URL Analysis    | tldextract                                         |
-| Data            | pandas, numpy                                      |
+| Category      | Libraries / Tools                            |
+| ------------- | -------------------------------------------- |
+| API Framework | FastAPI, Uvicorn                             |
+| ML / NLP      | scikit-learn, XGBoost, Transformers, PyTorch |
+| LLM           | Ollama (Mistral, local)                      |
+| Audio-to-Text | OpenAI Whisper                               |
+| Privacy / PII | Presidio Analyzer & Anonymizer, regex        |
+| File Parsing  | pdfplumber, python-docx                      |
+| Audio         | librosa, ffmpeg                              |
+| URL Analysis  | tldextract                                   |
+| Data          | pandas, numpy                                |
 
 ---
 
@@ -156,6 +177,12 @@ curl -X POST "http://127.0.0.1:8000/analyze?text=Your+account+has+been+compromis
 ```bash
 pip install -r requirements.txt
 ```
+
+**Note:** If you plan to use audio transcription, you also need **ffmpeg** installed on your system:
+
+- **Windows**: Download from [ffmpeg.org](https://ffmpeg.org/download.html)
+- **Mac**: `brew install ffmpeg`
+- **Linux**: `sudo apt install ffmpeg`
 
 ### 2. Start Ollama with Mistral (for LLM layer)
 
@@ -191,15 +218,15 @@ The privacy layer strips the following before any ML or LLM processing:
 
 ## 📁 Heuristic Scoring Map
 
-| Flag               | Score |
-|--------------------|-------|
-| `strong_phishing`  | +50   |
-| `credential_theft` | +50   |
-| `suspicious_url`   | +40   |
-| `phishing`         | +30   |
-| `financial_intent` | +20   |
-| `urgency`          | +20   |
-| `long_url`         | +10   |
+| Flag                                   | Score         |
+| -------------------------------------- | ------------- |
+| `strong_phishing`                      | +50           |
+| `credential_theft`                     | +50           |
+| `suspicious_url`                       | +40           |
+| `phishing`                             | +30           |
+| `financial_intent`                     | +20           |
+| `urgency`                              | +20           |
+| `long_url`                             | +10           |
 | **urgency + credential_theft (combo)** | **+20 bonus** |
 
 ---
