@@ -50,6 +50,7 @@ def analyze(text: str):
 
     # 🔹 Step 1: Input Layer
     input_data = process_text_input(text)
+    context_type = input_data.get("type", "email")
 
     # 🔹 Step 2: Layer 0 (Privacy + Features)
     layer0_output = process_privacy_layer(input_data)
@@ -61,25 +62,30 @@ def analyze(text: str):
     # 🔥 Step 4: Smart Routing for ML
     if heuristic_score >= 120:
         layer2_output = {
-            "ml_probability": 1.0,
-            "ml_prediction": "fraud",
-            "confidence": 1.0,
+            "ml_text_score": 95.0,
+            "ml_text_confidence": 1.0,
             "note": "Skipped ML (high risk from heuristics)"
         }
 
     elif heuristic_score <= 20:
         layer2_output = {
-            "ml_probability": 0.0,
-            "ml_prediction": "safe",
-            "confidence": 1.0,
+            "ml_text_score": 5.0,
+            "ml_text_confidence": 1.0,
             "note": "Skipped ML (low risk from heuristics)"
         }
 
     else:
         layer2_output = run_ml_model(layer0_output)
 
+    # Prepare meta info for context-aware scoring
+    meta = {
+        "has_url": "http" in layer0_output.get("clean_text", "").lower(),
+        "ocr_used": input_data.get("type") in ["audio_transcribed", "file_pdf"],
+        "ocr_quality": layer0_output.get("ocr_quality", 0.8)
+    }
+
     # 🔹 Step 5: Risk Engine (Final Decision)
-    final_output = make_decision(layer1_output, layer2_output)
+    final_output = make_decision(layer1_output, layer2_output, context_type, meta)
 
     # 🔹 Step 6: Layer 3 (LLM Explanation)
     llm_output = run_llm(
@@ -124,6 +130,9 @@ async def analyze_file(file: UploadFile = File(...)):
         # If the input is not audio/image/video, it should have content as text
         if input_data["type"] in ["audio_transcribed", "text", "url", "email"]:
             text_content = input_data["content"]
+            context_type = input_data.get("type", "file")
+            if context_type == "audio_transcribed":
+                context_type = "audio"
 
             # 🔹 Step 2: Layer 0 (Privacy + Features)
             layer0_output = process_privacy_layer(input_data)
@@ -135,25 +144,30 @@ async def analyze_file(file: UploadFile = File(...)):
             # 🔥 Step 4: Smart Routing for ML
             if heuristic_score >= 120:
                 layer2_output = {
-                    "ml_probability": 1.0,
-                    "ml_prediction": "fraud",
-                    "confidence": 1.0,
+                    "ml_text_score": 95.0,
+                    "ml_text_confidence": 1.0,
                     "note": "Skipped ML (high risk from heuristics)"
                 }
 
             elif heuristic_score <= 20:
                 layer2_output = {
-                    "ml_probability": 0.0,
-                    "ml_prediction": "safe",
-                    "confidence": 1.0,
+                    "ml_text_score": 5.0,
+                    "ml_text_confidence": 1.0,
                     "note": "Skipped ML (low risk from heuristics)"
                 }
 
             else:
                 layer2_output = run_ml_model(layer0_output)
 
+            # Prepare meta info for context-aware scoring
+            meta = {
+                "has_url": "http" in layer0_output.get("clean_text", "").lower(),
+                "ocr_used": input_data.get("type") in ["audio_transcribed", "file_pdf"],
+                "ocr_quality": layer0_output.get("ocr_quality", 0.8)
+            }
+
             # 🔹 Step 5: Risk Engine (Final Decision)
-            final_output = make_decision(layer1_output, layer2_output)
+            final_output = make_decision(layer1_output, layer2_output, context_type, meta)
 
             # 🔹 Step 6: Layer 3 (LLM Explanation)
             llm_output = run_llm(
