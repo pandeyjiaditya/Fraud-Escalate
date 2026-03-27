@@ -128,7 +128,7 @@ async def analyze_file(file: UploadFile = File(...)):
         input_data = process_file_input(str(file_path))
 
         # If the input is not audio/image/video, it should have content as text
-        if input_data["type"] in ["audio_transcribed", "text", "url", "email"]:
+        if input_data["type"] in ["audio_transcribed", "text", "url", "email", "image_ocr"]:
             text_content = input_data["content"]
             context_type = input_data.get("type", "file")
             if context_type == "audio_transcribed":
@@ -162,8 +162,8 @@ async def analyze_file(file: UploadFile = File(...)):
             # Prepare meta info for context-aware scoring
             meta = {
                 "has_url": "http" in layer0_output.get("clean_text", "").lower(),
-                "ocr_used": input_data.get("type") in ["audio_transcribed", "file_pdf"],
-                "ocr_quality": layer0_output.get("ocr_quality", 0.8)
+                "ocr_used": input_data.get("type") in ["audio_transcribed", "file_pdf", "image_ocr"],
+                "ocr_quality": layer0_output.get("ocr_quality", input_data.get("metadata", {}).get("ocr_quality", 0.8))
             }
 
             # 🔹 Step 5: Risk Engine (Final Decision)

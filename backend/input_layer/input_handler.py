@@ -3,6 +3,7 @@ from datetime import datetime
 from .file_segregator import detect_input_type
 from .file_readers import read_txt, read_pdf, read_docx
 from .audio_transcription import transcribe_audio_file
+from .ocr_processor import process_image_for_fraud_analysis
 
 
 def process_text_input(data: str):
@@ -22,13 +23,15 @@ def process_text_input(data: str):
 def process_file_input(file_path: str):
     file_path_lower = file_path.lower()
 
-    # Image detection
+    # Image detection - Extract text via OCR
     if file_path_lower.endswith((".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp")):
-        return {
-            "type": "image",
-            "content": file_path,
-            "metadata": {"timestamp": str(datetime.now())}
-        }
+        print(f"Processing image file: {file_path}")
+        ocr_result = process_image_for_fraud_analysis(file_path)
+        print(f"Image OCR completed: {len(ocr_result['content'])} characters extracted")
+
+        # Add timestamp to metadata
+        ocr_result["metadata"]["timestamp"] = str(datetime.now())
+        return ocr_result
 
     # Video detection
     elif file_path_lower.endswith((".mp4", ".avi", ".mov", ".mkv", ".webm")):

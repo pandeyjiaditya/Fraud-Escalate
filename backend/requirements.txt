@@ -18,3 +18,5 @@ librosa
 python-dotenv
 openai-whisper
 ffmpeg-python
+easyocr
+pillow
