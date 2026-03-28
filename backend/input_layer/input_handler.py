@@ -4,16 +4,21 @@ from .file_segregator import detect_input_type
 from .file_readers import read_txt, read_pdf, read_docx
 from .audio_transcription import transcribe_audio_file
 from .ocr_processor import process_image_for_fraud_analysis
+from .url_processor import process_url_for_fraud_analysis
 
 
 def process_text_input(data: str):
     input_type = detect_input_type(data)
 
+    # Extract and score URLs BEFORE Layer 0
+    url_analysis = process_url_for_fraud_analysis(data)
+
     structured_input = {
         "type": input_type,
         "content": data,
         "metadata": {
-            "timestamp": str(datetime.now())
+            "timestamp": str(datetime.now()),
+            "url_analysis": url_analysis
         }
     }
 
@@ -31,6 +36,11 @@ def process_file_input(file_path: str):
 
         # Add timestamp to metadata
         ocr_result["metadata"]["timestamp"] = str(datetime.now())
+
+        # Extract and score URLs from OCR content
+        url_analysis = process_url_for_fraud_analysis(ocr_result["content"])
+        ocr_result["metadata"]["url_analysis"] = url_analysis
+
         return ocr_result
 
     # Video detection
@@ -47,13 +57,17 @@ def process_file_input(file_path: str):
         transcribed_text = transcribe_audio_file(file_path)
         print(f"Audio transcribed successfully: {len(transcribed_text)} characters")
 
+        # Extract and score URLs from transcribed text
+        url_analysis = process_url_for_fraud_analysis(transcribed_text)
+
         # Process transcribed text through the same pipeline
         return {
             "type": "audio_transcribed",
             "content": transcribed_text,
             "metadata": {
                 "timestamp": str(datetime.now()),
-                "original_file": file_path
+                "original_file": file_path,
+                "url_analysis": url_analysis
             }
         }
 

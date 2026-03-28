@@ -78,9 +78,16 @@ def analyze(text: str):
     else:
         layer2_output = run_ml_model(layer0_output)
 
+    # Add URL scoring to layer2 output
+    url_analysis = input_data.get("metadata", {}).get("url_analysis", {})
+    if url_analysis and url_analysis.get("has_urls"):
+        layer2_output["url_ml_score"] = url_analysis.get("url_ml_score", 0)
+        layer2_output["url_ml_confidence"] = url_analysis.get("url_ml_confidence", 0)
+
     # Prepare meta info for context-aware scoring
+    url_analysis = input_data.get("metadata", {}).get("url_analysis", {})
     meta = {
-        "has_url": "http" in layer0_output.get("clean_text", "").lower(),
+        "has_url": url_analysis.get("has_urls", False),
         "ocr_used": input_data.get("type") in ["audio_transcribed", "file_pdf"],
         "ocr_quality": layer0_output.get("ocr_quality", 0.8)
     }
@@ -160,9 +167,16 @@ async def analyze_file(file: UploadFile = File(...)):
             else:
                 layer2_output = run_ml_model(layer0_output)
 
+            # Add URL scoring to layer2 output
+            url_analysis = input_data.get("metadata", {}).get("url_analysis", {})
+            if url_analysis and url_analysis.get("has_urls"):
+                layer2_output["url_ml_score"] = url_analysis.get("url_ml_score", 0)
+                layer2_output["url_ml_confidence"] = url_analysis.get("url_ml_confidence", 0)
+
             # Prepare meta info for context-aware scoring
+            url_analysis = input_data.get("metadata", {}).get("url_analysis", {})
             meta = {
-                "has_url": "http" in layer0_output.get("clean_text", "").lower(),
+                "has_url": url_analysis.get("has_urls", False),
                 "ocr_used": input_data.get("type") in ["audio_transcribed", "file_pdf", "image_ocr"],
                 "ocr_quality": layer0_output.get("ocr_quality", input_data.get("metadata", {}).get("ocr_quality", 0.8))
             }
