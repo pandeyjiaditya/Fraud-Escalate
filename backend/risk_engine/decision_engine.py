@@ -28,8 +28,8 @@ def generate_final_reasoning(score, layer1, layer2, decision):
         reasoning = f"Critical fraud indicators detected. {' and '.join(reasoning_parts)}. Recommend immediate blocking."
     elif decision == "REVIEW":
         reasoning = f"Elevated fraud risk signals. {' and '.join(reasoning_parts)}. Manual review required."
-    elif decision == "MONITOR":
-        reasoning = f"Some suspicious patterns detected. {' and '.join(reasoning_parts)}. Continue monitoring."
+    elif decision == "SAFE":
+        reasoning = "Content appears legitimate based on available signals. No fraud indicators detected. Proceed normally."
     else:
         reasoning = "Content appears legitimate based on available signals. Proceed normally."
 
@@ -62,14 +62,12 @@ def make_decision(layer1, layer2=None, context_type: str = "email", meta: dict =
 
     final_conf = (0.6 * l1_conf) + (0.4 * l2_conf)
 
-    if score <= 30:
-        decision = "ALLOW"
-    elif score <= 60:
-        decision = "MONITOR"
-    elif score <= 80:
+    if score >= 70:
+        decision = "BLOCK"
+    elif score >= 40:
         decision = "REVIEW"
     else:
-        decision = "BLOCK"
+        decision = "SAFE"
 
     # Generate reasoning for final decision
     reasoning = generate_final_reasoning(score, layer1, layer2, decision)

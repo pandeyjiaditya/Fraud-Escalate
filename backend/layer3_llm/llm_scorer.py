@@ -85,7 +85,15 @@ def parse_llm_response(response_text):
             json_str = json_match.group(0)
             result = json.loads(json_str)
 
-            # Validate and normalize
+            # Handle error responses from Ollama client
+            if "error" in result:
+                return {
+                    "llm_score": result.get("llm_score", 50),
+                    "llm_confidence": result.get("confidence", 0.3),
+                    "reasoning": result.get("reasoning", "LLM service unavailable")
+                }
+
+            # Validate and normalize normal responses
             llm_score = float(result.get("llm_score", 50))
             confidence = float(result.get("confidence", 0.5))
             reasoning = str(result.get("reasoning", ""))
@@ -124,12 +132,17 @@ def run_llm_scorer(text, layer0=None, layer1=None, layer2=None):
         dict with llm_score, llm_confidence, reasoning
     """
 
+    print("[*] Generating LLM fraud score...")
     prompt = build_scoring_prompt(text, layer0, layer1, layer2)
 
     # Call LLM
     response = call_ollama(prompt)
 
+    print(f"[*] LLM Scorer Response: {response[:200]}...")
+
     # Parse response
     result = parse_llm_response(response)
+
+    print(f"[✓] LLM score: {result.get('llm_score')}, confidence: {result.get('llm_confidence')}")
 
     return result

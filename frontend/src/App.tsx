@@ -8,7 +8,7 @@ import {
 import HomePage from "./pages/HomePage";
 import MailTerminal from "./pages/MailTerminal";
 import UploadArtifacts from "./pages/UploadArtifacts";
-import ResultsPageNew from "./pages/ResultsPageNew";
+import DetailedAnalysis from "./pages/DetailedAnalysis";
 import ResultsHistory from "./pages/ResultsHistory";
 
 export default function App() {
@@ -18,7 +18,7 @@ export default function App() {
         <Route path="/" element={<HomePage />} />
         <Route path="/mail-terminal" element={<MailTerminal />} />
         <Route path="/upload-artifacts" element={<UploadArtifacts />} />
-        <Route path="/results" element={<ResultsPageNew />} />
+        <Route path="/results" element={<DetailedAnalysis />} />
         <Route path="/results-history" element={<ResultsHistory />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

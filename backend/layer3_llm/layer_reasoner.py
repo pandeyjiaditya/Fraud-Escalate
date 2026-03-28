@@ -32,7 +32,7 @@ You are a cybersecurity analyst explaining fraud detection heuristics.
 
 --- LAYER 1 HEURISTIC FLAGS DETECTED ---
 {flags_info}
-Overall Heuristic Score: {score}/150
+Overall Heuristic Score: {score}/100
 
 --- TASK ---
 Analyze the message and provide a brief explanation for each detected flag. For each flag, explain:
@@ -122,20 +122,28 @@ Do not include any other text. Only the JSON object.
 def parse_layer_reasoning_response(response_text):
     """
     Extract JSON from LLM reasoning response.
+    Handles both normal LLM responses and fallback error responses.
     """
     try:
         json_match = re.search(r'\{.*\}', response_text, re.DOTALL)
         if json_match:
             json_str = json_match.group(0)
             result = json.loads(json_str)
-            return result
-    except (json.JSONDecodeError, ValueError):
-        pass
 
-    # Fallback
+            # Return result as-is, whether it's an error response or normal response
+            return result
+    except (json.JSONDecodeError, ValueError) as e:
+        print(f"[!] Failed to parse layer reasoning response: {e}")
+
+    # Fallback if parsing completely fails
     return {
         "error": "Failed to parse LLM reasoning",
-        "raw_response": response_text
+        "flag_analysis": {},
+        "overall_assessment": "Error parsing LLM response",
+        "text_analysis": "Error parsing LLM response",
+        "ml_patterns_detected": [],
+        "comparison_with_heuristics": "",
+        "risk_level": "unknown"
     }
 
 
@@ -156,9 +164,13 @@ def run_layer1_reasoning(text, layer1_output):
             "overall_assessment": "No heuristic flags detected."
         }
 
+    print("[*] Generating Layer 1 reasoning...")
     prompt = build_layer1_reasoning_prompt(text, layer1_output)
     response = call_ollama(prompt)
+
+    print(f"[*] Layer 1 LLM Response: {response[:200]}...")
     result = parse_layer_reasoning_response(response)
+    print(f"[✓] Layer 1 reasoning parsed: {bool(result)}")
 
     return result
 
@@ -175,8 +187,12 @@ def run_layer2_reasoning(text, layer1_output, layer2_output):
     Returns:
         dict with ML analysis and patterns
     """
+    print("[*] Generating Layer 2 reasoning...")
     prompt = build_layer2_reasoning_prompt(text, layer1_output, layer2_output)
     response = call_ollama(prompt)
+
+    print(f"[*] Layer 2 LLM Response: {response[:200]}...")
     result = parse_layer_reasoning_response(response)
+    print(f"[✓] Layer 2 reasoning parsed: {bool(result)}")
 
     return result

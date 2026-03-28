@@ -17,7 +17,7 @@ def run_heuristics(data):
         flags.append("urgency")
 
     if "otp" in text or "password" in text:
-        score += 26.67
+        score += 27
         flags.append("credential_theft")
 
     if "http" in text:
@@ -25,7 +25,7 @@ def run_heuristics(data):
         flags.append("suspicious_url")
 
     if "bank" in text or "account" in text:
-        score += 13.33
+        score += 13
         flags.append("financial_intent")
 
     if "suspended" in text or "blocked" in text:
@@ -33,7 +33,7 @@ def run_heuristics(data):
         flags.append("strong_phishing")
 
     confidence = min(score / 100, 1.0)
-    score = min(score, 100)
+    score = min(int(score), 100)
 
     return {
         "heuristic_score": score,
