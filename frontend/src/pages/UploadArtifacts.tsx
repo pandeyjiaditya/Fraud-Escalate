@@ -225,7 +225,10 @@ export default function UploadArtifacts() {
             >
               <ArrowLeft className="w-6 h-6 text-green-500" />
             </button>
-            <div className="flex items-center gap-3">
+            <button
+              onClick={() => navigate('/')}
+              className="flex items-center gap-3 hover:opacity-80 transition"
+            >
               <div className="w-10 h-10 border-2 border-green-500 rounded flex items-center justify-center">
                 <Shield className="w-6 h-6 text-green-500" />
               </div>
@@ -233,7 +236,7 @@ export default function UploadArtifacts() {
                 <div className="text-sm font-bold text-white">NULLPOINT</div>
                 <div className="text-xs text-green-500">Upload Artifacts</div>
               </div>
-            </div>
+            </button>
           </div>
           {(files.length > 0 || textResult) && (
             <button

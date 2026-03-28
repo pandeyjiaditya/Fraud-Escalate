@@ -105,7 +105,10 @@ export default function ResultsPage() {
             >
               <ArrowLeft className="w-6 h-6 text-green-500" />
             </button>
-            <div className="flex items-center gap-3">
+            <button
+              onClick={() => navigate("/")}
+              className="flex items-center gap-3 hover:opacity-80 transition"
+            >
               <div className="w-10 h-10 border-2 border-green-500 rounded flex items-center justify-center">
                 <Shield className="w-6 h-6 text-green-500" />
               </div>
@@ -113,7 +116,7 @@ export default function ResultsPage() {
                 <div className="text-sm font-bold text-white">NULLPOINT</div>
                 <div className="text-xs text-green-500">Analysis Results</div>
               </div>
-            </div>
+            </button>
           </div>
 
           <button
