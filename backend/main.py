@@ -53,6 +53,9 @@ def analyze(text: str):
     input_data = process_text_input(text)
     context_type = input_data.get("type", "email")
 
+    # Store url_analysis for response, but remove from metadata to avoid duplication in layers
+    url_analysis_input = input_data.get("metadata", {}).pop("url_analysis", {})
+
     # 🔹 Step 2: Layer 0 (Privacy + Features)
     layer0_output = process_privacy_layer(input_data)
 
@@ -79,15 +82,13 @@ def analyze(text: str):
         layer2_output = run_ml_model(layer0_output)
 
     # Add URL scoring to layer2 output
-    url_analysis = input_data.get("metadata", {}).get("url_analysis", {})
-    if url_analysis and url_analysis.get("has_urls"):
-        layer2_output["url_ml_score"] = url_analysis.get("url_ml_score", 0)
-        layer2_output["url_ml_confidence"] = url_analysis.get("url_ml_confidence", 0)
+    if url_analysis_input and url_analysis_input.get("has_urls"):
+        layer2_output["url_ml_score"] = url_analysis_input.get("url_ml_score", 0)
+        layer2_output["url_ml_confidence"] = url_analysis_input.get("url_ml_confidence", 0)
 
     # Prepare meta info for context-aware scoring
-    url_analysis = input_data.get("metadata", {}).get("url_analysis", {})
     meta = {
-        "has_url": url_analysis.get("has_urls", False),
+        "has_url": url_analysis_input.get("has_urls", False),
         "ocr_used": input_data.get("type") in ["audio_transcribed", "file_pdf"],
         "ocr_quality": layer0_output.get("ocr_quality", 0.8)
     }
@@ -102,6 +103,9 @@ def analyze(text: str):
         layer2=layer2_output,
         final=final_output
     )
+
+    # Restore url_analysis to input_data for response
+    input_data["metadata"]["url_analysis"] = url_analysis_input
 
     return {
         "input": input_data,
@@ -134,6 +138,10 @@ async def analyze_file(file: UploadFile = File(...)):
 
         # Process the file
         input_data = process_file_input(str(file_path))
+
+        # Store url_analysis for response, but remove from metadata to avoid duplication in layers
+        url_analysis_input = input_data.get("metadata", {}).pop("url_analysis", {})
+        deepfake_analysis_input = input_data.get("metadata", {}).pop("deepfake_analysis", {})
 
         # If the input is not audio/image/video, it should have content as text
         if input_data["type"] in ["audio_transcribed", "text", "url", "email", "image_ocr"]:
@@ -168,21 +176,18 @@ async def analyze_file(file: UploadFile = File(...)):
                 layer2_output = run_ml_model(layer0_output)
 
             # Add URL scoring to layer2 output
-            url_analysis = input_data.get("metadata", {}).get("url_analysis", {})
-            if url_analysis and url_analysis.get("has_urls"):
-                layer2_output["url_ml_score"] = url_analysis.get("url_ml_score", 0)
-                layer2_output["url_ml_confidence"] = url_analysis.get("url_ml_confidence", 0)
+            if url_analysis_input and url_analysis_input.get("has_urls"):
+                layer2_output["url_ml_score"] = url_analysis_input.get("url_ml_score", 0)
+                layer2_output["url_ml_confidence"] = url_analysis_input.get("url_ml_confidence", 0)
 
             # Add deepfake scoring for audio
-            deepfake_analysis = input_data.get("metadata", {}).get("deepfake_analysis", {})
-            if deepfake_analysis and deepfake_analysis.get("deepfake_score") is not None:
-                layer2_output["deepfake_score"] = deepfake_analysis.get("deepfake_score", 0) * 100
-                layer2_output["deepfake_confidence"] = deepfake_analysis.get("metadata", {}).get("deepfake_confidence", 0)
+            if deepfake_analysis_input and deepfake_analysis_input.get("deepfake_score") is not None:
+                layer2_output["deepfake_score"] = deepfake_analysis_input.get("deepfake_score", 0) * 100
+                layer2_output["deepfake_confidence"] = deepfake_analysis_input.get("metadata", {}).get("deepfake_confidence", 0)
 
             # Prepare meta info for context-aware scoring
-            url_analysis = input_data.get("metadata", {}).get("url_analysis", {})
             meta = {
-                "has_url": url_analysis.get("has_urls", False),
+                "has_url": url_analysis_input.get("has_urls", False),
                 "ocr_used": input_data.get("type") in ["audio_transcribed", "file_pdf", "image_ocr"],
                 "ocr_quality": layer0_output.get("ocr_quality", input_data.get("metadata", {}).get("ocr_quality", 0.8))
             }
@@ -197,6 +202,10 @@ async def analyze_file(file: UploadFile = File(...)):
                 layer2=layer2_output,
                 final=final_output
             )
+
+            # Restore url_analysis and deepfake_analysis to input_data for response
+            input_data["metadata"]["url_analysis"] = url_analysis_input
+            input_data["metadata"]["deepfake_analysis"] = deepfake_analysis_input
 
             return {
                 "input": input_data,
