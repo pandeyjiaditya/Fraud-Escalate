@@ -1,1 +1,1 @@
-{"root":["./src/app.tsx","./src/main.tsx","./src/pages/homepage.tsx","./src/pages/mailterminal.tsx","./src/pages/resultspage.tsx","./src/pages/uploadartifacts.tsx","./src/services/analysisservice.ts"],"version":"5.9.3"}
+{"root":["./src/app.tsx","./src/main.tsx","./src/pages/homepage.tsx","./src/pages/mailterminal.tsx","./src/pages/resultshistory.tsx","./src/pages/resultspage.tsx","./src/pages/resultspagenew.tsx","./src/pages/uploadartifacts.tsx","./src/services/analysisservice.ts","./src/utils/generatepdf.ts"],"version":"5.9.3"}

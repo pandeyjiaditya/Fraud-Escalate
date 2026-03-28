@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { ArrowLeft, Shield, AlertCircle, CheckCircle2, ChevronDown } from "lucide-react";
+import { ArrowLeft, Shield, AlertCircle, CheckCircle2, ChevronDown, Download } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   getRiskColor,
   getRiskLevel,
   AnalysisResponse,
 } from "../services/analysisService";
+import { downloadPDF } from "../utils/generatePDF";
 
 const STORAGE_KEY = 'fraud_analysis_results';
 
@@ -15,6 +16,7 @@ export default function ResultsPage() {
   const location = useLocation();
   const [expandedLayers, setExpandedLayers] = useState<Set<string>>(new Set(['layer0', 'layer1', 'layer2', 'layer3']));
   const [result, setResult] = useState<AnalysisResponse | undefined>(location.state?.result);
+  const [isDownloading, setIsDownloading] = useState(false);
 
   // Load from localStorage if not passed via navigation
   useEffect(() => {
@@ -31,6 +33,16 @@ export default function ResultsPage() {
         }
       } catch (error) {
         console.error('Error loading stored result:', error);
+      }
+    } else {
+      // If result is passed via navigation, ensure it's saved to localStorage for persistence
+      try {
+        const storedResults = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+        const timestamp = new Date().toISOString();
+        storedResults[`result_${timestamp}`] = result;
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(storedResults));
+      } catch (error) {
+        console.error('Error saving result to localStorage:', error);
       }
     }
   }, []);
@@ -62,7 +74,22 @@ export default function ResultsPage() {
     setExpandedLayers(newSet);
   };
 
+  const handleDownloadPDF = async () => {
+    if (!result) return;
+    setIsDownloading(true);
+    try {
+      await downloadPDF(result);
+    } catch (error) {
+      console.error('Error downloading PDF:', error);
+      alert('Failed to download PDF. Please try again.');
+    } finally {
+      setIsDownloading(false);
+    }
+  };
+
   const riskScore = result.final.risk_score;
+  const riskLevel = result.final.risk_level;
+  const riskColor = getRiskColor(result.final.risk_color);
   const decision = result.final.decision;
   const reasoning = result.final.reasoning;
 
@@ -70,22 +97,35 @@ export default function ResultsPage() {
     <div className="min-h-screen bg-black text-white">
       {/* Header */}
       <header className="border-b border-green-500/20 backdrop-blur-sm sticky top-0 z-40">
-        <div className="max-w-7xl mx-auto px-6 py-4 flex items-center gap-4">
-          <button
-            onClick={() => navigate("/upload-artifacts")}
-            className="p-2 hover:bg-green-500/10 rounded transition"
-          >
-            <ArrowLeft className="w-6 h-6 text-green-500" />
-          </button>
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 border-2 border-green-500 rounded flex items-center justify-center">
-              <Shield className="w-6 h-6 text-green-500" />
-            </div>
-            <div>
-              <div className="text-sm font-bold text-white">NULLPOINT</div>
-              <div className="text-xs text-green-500">Analysis Results</div>
+        <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => navigate("/upload-artifacts")}
+              className="p-2 hover:bg-green-500/10 rounded transition"
+            >
+              <ArrowLeft className="w-6 h-6 text-green-500" />
+            </button>
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 border-2 border-green-500 rounded flex items-center justify-center">
+                <Shield className="w-6 h-6 text-green-500" />
+              </div>
+              <div>
+                <div className="text-sm font-bold text-white">NULLPOINT</div>
+                <div className="text-xs text-green-500">Analysis Results</div>
+              </div>
             </div>
           </div>
+
+          <button
+            onClick={handleDownloadPDF}
+            disabled={isDownloading}
+            className="flex items-center gap-2 px-4 py-2 bg-green-500/10 border border-green-500/30 hover:border-green-500/60 hover:bg-green-500/20 rounded transition disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <Download className="w-4 h-4 text-green-500" />
+            <span className="text-sm font-medium text-green-500">
+              {isDownloading ? 'Generating...' : 'Download PDF'}
+            </span>
+          </button>
         </div>
       </header>
 
@@ -103,7 +143,7 @@ export default function ResultsPage() {
               <div className="text-center">
                 <p className="text-gray-400 text-sm mb-4">RISK SCORE</p>
                 <div
-                  className={`text-6xl font-black ${getRiskColor(riskScore)}`}
+                  className={`text-6xl font-black ${riskColor}`}
                 >
                   {riskScore.toFixed(1)}
                 </div>
@@ -114,18 +154,18 @@ export default function ResultsPage() {
               <div className="text-center">
                 <p className="text-gray-400 text-sm mb-4">RISK LEVEL</p>
                 <div
-                  className={`text-4xl font-black ${getRiskColor(riskScore)}`}
+                  className={`text-4xl font-black ${riskColor}`}
                 >
-                  {getRiskLevel(riskScore)}
+                  {riskLevel}
                 </div>
                 {riskScore >= 70 && (
                   <AlertCircle
-                    className={`w-8 h-8 mx-auto mt-4 ${getRiskColor(riskScore)}`}
+                    className={`w-8 h-8 mx-auto mt-4 ${riskColor}`}
                   />
                 )}
                 {riskScore < 40 && (
                   <CheckCircle2
-                    className={`w-8 h-8 mx-auto mt-4 ${getRiskColor(riskScore)}`}
+                    className={`w-8 h-8 mx-auto mt-4 ${riskColor}`}
                   />
                 )}
               </div>
@@ -181,7 +221,7 @@ export default function ResultsPage() {
                   </div>
                   <div className="text-left">
                     <h3 className="text-lg font-semibold text-white">Layer 0 - Privacy & Normalization</h3>
-                    <p className="text-sm text-gray-400">Content cleaning and text normalization</p>
+                    <p className="text-sm text-gray-400">Content cleaning, PII removal, and text normalization</p>
                   </div>
                 </div>
                 <ChevronDown
@@ -199,22 +239,116 @@ export default function ResultsPage() {
                     exit={{ height: 0, opacity: 0 }}
                     className="border-t border-green-500/10 px-6 py-4 bg-black/20 space-y-4"
                   >
-                    <div className="grid md:grid-cols-2 gap-4">
+                    {/* Key Metrics */}
+                    <div className="grid md:grid-cols-3 gap-4">
                       <div>
                         <p className="text-gray-400 text-sm mb-1">Clean Text Confidence</p>
                         <p className="text-white font-semibold text-lg">
-                          {(result.layer0?.clean_text_confidence || 0).toFixed(2)}%
+                          {(result.layer0?.clean_text_confidence || 0).toFixed(1)}%
                         </p>
                       </div>
                       <div>
                         <p className="text-gray-400 text-sm mb-1">Words Analyzed</p>
                         <p className="text-white font-semibold text-lg">{result.layer0?.word_count || 0}</p>
                       </div>
+                      <div>
+                        <p className="text-gray-400 text-sm mb-1">PII Detected</p>
+                        <p className={`font-semibold text-lg ${
+                          result.layer0?.pii_detected ? 'text-red-400' : 'text-green-400'
+                        }`}>
+                          {result.layer0?.pii_detected ? 'Yes' : 'No'}
+                        </p>
+                      </div>
                     </div>
-                    {result.layer0?.reasoning && (
-                      <div className="bg-blue-500/5 border border-blue-500/20 rounded p-3">
-                        <p className="text-gray-400 text-xs font-semibold mb-2">ANALYSIS REASONING</p>
-                        <p className="text-gray-300 text-sm leading-relaxed">{result.layer0.reasoning}</p>
+
+                    {/* Character Reduction */}
+                    {result.layer0?.character_reduction && (
+                      <div className="bg-blue-500/5 border border-blue-500/20 rounded p-4">
+                        <p className="text-gray-400 text-xs font-semibold mb-3">TEXT PROCESSING</p>
+                        <div className="grid md:grid-cols-3 gap-3 text-sm">
+                          <div className="bg-black/40 rounded p-2">
+                            <p className="text-gray-400 text-xs mb-1">Original Length</p>
+                            <p className="text-white font-semibold">{result.layer0.character_reduction.original_length} chars</p>
+                          </div>
+                          <div className="bg-black/40 rounded p-2">
+                            <p className="text-gray-400 text-xs mb-1">Cleaned Length</p>
+                            <p className="text-white font-semibold">{result.layer0.character_reduction.cleaned_length} chars</p>
+                          </div>
+                          <div className="bg-black/40 rounded p-2">
+                            <p className="text-gray-400 text-xs mb-1">Normalized Length</p>
+                            <p className="text-white font-semibold">{result.layer0.character_reduction.normalized_length} chars</p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Features Detected */}
+                    {result.layer0?.features && (
+                      <div className="bg-blue-500/5 border border-blue-500/20 rounded p-4">
+                        <p className="text-gray-400 text-xs font-semibold mb-3">DETECTED FEATURES</p>
+                        <div className="grid md:grid-cols-2 gap-2">
+                          <div className={`p-2 rounded ${result.layer0.features.has_url ? 'bg-orange-500/10' : 'bg-black/40'}`}>
+                            <p className={`text-xs font-semibold ${result.layer0.features.has_url ? 'text-orange-400' : 'text-gray-400'}`}>
+                              URL Detected: {result.layer0.features.has_url ? '✓' : '✗'}
+                            </p>
+                          </div>
+                          <div className={`p-2 rounded ${result.layer0.features.has_urgent_words ? 'bg-red-500/10' : 'bg-black/40'}`}>
+                            <p className={`text-xs font-semibold ${result.layer0.features.has_urgent_words ? 'text-red-400' : 'text-gray-400'}`}>
+                              Urgent Words: {result.layer0.features.has_urgent_words ? '✓' : '✗'}
+                            </p>
+                          </div>
+                          <div className={`p-2 rounded ${result.layer0.features.has_numbers ? 'bg-yellow-500/10' : 'bg-black/40'}`}>
+                            <p className={`text-xs font-semibold ${result.layer0.features.has_numbers ? 'text-yellow-400' : 'text-gray-400'}`}>
+                              Numbers: {result.layer0.features.has_numbers ? '✓' : '✗'}
+                            </p>
+                          </div>
+                          <div className={`p-2 rounded ${result.layer0.features.has_sensitive_keywords ? 'bg-red-500/10' : 'bg-black/40'}`}>
+                            <p className={`text-xs font-semibold ${result.layer0.features.has_sensitive_keywords ? 'text-red-400' : 'text-gray-400'}`}>
+                              Sensitive Keywords: {result.layer0.features.has_sensitive_keywords ? '✓' : '✗'}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Original vs Cleaned Text */}
+                    <div className="space-y-3">
+                      <div>
+                        <p className="text-gray-400 text-xs font-semibold mb-2">ORIGINAL INPUT</p>
+                        <div className="bg-black/60 rounded p-3 max-h-24 overflow-y-auto">
+                          <p className="text-gray-300 text-xs font-mono line-clamp-4">
+                            {result.input?.content?.substring(0, 300) || 'N/A'}
+                            {result.input?.content && result.input.content.length > 300 ? '...' : ''}
+                          </p>
+                        </div>
+                      </div>
+                      <div>
+                        <p className="text-gray-400 text-xs font-semibold mb-2">CLEANED & NORMALIZED</p>
+                        <div className="bg-black/60 rounded p-3 max-h-24 overflow-y-auto">
+                          <p className="text-gray-300 text-xs font-mono line-clamp-4">
+                            {result.layer0?.clean_text?.substring(0, 300) || 'N/A'}
+                            {result.layer0?.clean_text && result.layer0.clean_text.length > 300 ? '...' : ''}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Multilingual Metadata */}
+                    {result.layer0?.metadata?.multilingual && (
+                      <div className="bg-purple-500/5 border border-purple-500/20 rounded p-3">
+                        <p className="text-gray-400 text-xs font-semibold mb-2">MULTILINGUAL INFO</p>
+                        <div className="grid md:grid-cols-2 gap-2 text-xs">
+                          <div>
+                            <p className="text-gray-400">Detected Language</p>
+                            <p className="text-purple-400 font-semibold">{result.layer0.metadata.multilingual.original_language || 'N/A'}</p>
+                          </div>
+                          {result.layer0.metadata.multilingual.translation_confidence && (
+                            <div>
+                              <p className="text-gray-400">Translation Confidence</p>
+                              <p className="text-purple-400 font-semibold">{(result.layer0.metadata.multilingual.translation_confidence * 100).toFixed(1)}%</p>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     )}
                   </motion.div>
@@ -259,7 +393,7 @@ export default function ResultsPage() {
                       <div>
                         <p className="text-gray-400 text-sm mb-1">Heuristic Score</p>
                         <p className="text-white font-semibold text-lg">
-                          {result.layer1?.heuristic_score || 0} / 150
+                          {result.layer1?.heuristic_score || 0} / 100
                         </p>
                       </div>
                       <div>
@@ -306,7 +440,7 @@ export default function ResultsPage() {
                       <div className="bg-black/60 rounded p-3">
                         <p className="text-gray-400 text-xs font-semibold mb-2">DETECTED FLAGS</p>
                         <div className="flex flex-wrap gap-2">
-                          {result.layer1.flags.map((flag, idx) => (
+                          {result.layer1.flags.map((flag: string, idx: number) => (
                             <span
                               key={idx}
                               className="bg-red-500/20 border border-red-500/30 text-red-400 text-xs px-2 py-1 rounded"

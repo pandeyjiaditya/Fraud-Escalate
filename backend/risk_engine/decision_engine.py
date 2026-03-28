@@ -1,4 +1,5 @@
 from .scoring import calculate_risk_score
+from .display_utils import get_risk_level, get_risk_color
 
 
 def generate_final_reasoning(score, layer1, layer2, decision):
@@ -11,10 +12,10 @@ def generate_final_reasoning(score, layer1, layer2, decision):
     reasoning_parts = []
 
     # Heuristic contribution
-    if heuristic_score >= 100:
-        reasoning_parts.append(f"Strong heuristic signals detected (score: {heuristic_score}/150)")
-    elif heuristic_score >= 50:
-        reasoning_parts.append(f"Moderate heuristic flags found (score: {heuristic_score}/150)")
+    if heuristic_score >= 70:
+        reasoning_parts.append(f"Strong heuristic signals detected (score: {heuristic_score}/100)")
+    elif heuristic_score >= 40:
+        reasoning_parts.append(f"Moderate heuristic flags found (score: {heuristic_score}/100)")
 
     # ML contribution
     if ml_score >= 75:
@@ -75,6 +76,8 @@ def make_decision(layer1, layer2=None, context_type: str = "email", meta: dict =
 
     return {
         "risk_score": score,
+        "risk_level": get_risk_level(score),
+        "risk_color": get_risk_color(score),
         "decision": decision,
         "confidence": round(final_conf, 2),
         "context_type": context_type,

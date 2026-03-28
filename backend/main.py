@@ -4,6 +4,8 @@ import shutil
 import os
 from pathlib import Path
 import subprocess
+from concurrent.futures import ThreadPoolExecutor
+import threading
 
 # Input Layer
 from input_layer.input_handler import process_text_input, process_file_input
@@ -40,6 +42,35 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Thread pool for parallel processing
+executor = ThreadPoolExecutor(max_workers=4)
+
+# Model pre-loading flags
+models_preloaded = False
+
+
+def preload_models():
+    """Pre-load heavyweight models on startup (background task)"""
+    global models_preloaded
+    if models_preloaded:
+        return
+    print("[*] Pre-loading models in background...")
+    try:
+        from layer2_ml.model_loader import load_models
+        load_models()
+        print("[✓] ML models pre-loaded")
+    except Exception as e:
+        print(f"[!] Model pre-loading error: {e}")
+    models_preloaded = True
+
+
+# Pre-load models on first request
+@app.on_event("startup")
+async def startup_event():
+    """Pre-cache models on app startup"""
+    preload_models()
+
+
 # -----------------------------
 # Health Check
 # -----------------------------
@@ -59,6 +90,7 @@ def health():
 
 @app.post("/analyze")
 def analyze(text: str):
+    """OPTIMIZED: Parallelized layer processing"""
 
     # 🔹 Step 1: Input Layer
     input_data = process_text_input(text)
@@ -67,53 +99,91 @@ def analyze(text: str):
     # Store url_analysis for response, but remove from metadata to avoid duplication in layers
     url_analysis_input = input_data.get("metadata", {}).pop("url_analysis", {})
 
-    # 🔹 Step 2: Layer 0 (Privacy + Features)
+    # 🔹 Step 2: Layer 0 (Privacy + Features) - FAST, run first
     layer0_output = process_privacy_layer(input_data)
 
-    # 🔹 Step 3: Layer 1 (Heuristic Detection)
-    layer1_output = run_heuristics(layer0_output)
-    heuristic_score = layer1_output.get("heuristic_score", 0)
+    # 🔹 Step 3: PARALLELIZE Layer 1 and Layer 2 processing
+    print("[*] Running Layer 1 & 2 in PARALLEL...")
+    layer1_output = None
+    layer2_output = None
+    heuristic_score = 0
 
-    # 🔹 Step 3.5: Layer 3 - LLM Reasoning for Layer 1
-    layer1_reasoning = run_layer1_reasoning(
-        text=layer0_output.get("clean_text", ""),
-        layer1_output=layer1_output
-    )
+    # Run Layer 1 and Layer 2 in parallel threads
+    def run_layer1():
+        nonlocal layer1_output, heuristic_score
+        layer1_output = run_heuristics(layer0_output)
+        heuristic_score = layer1_output.get("heuristic_score", 0)
 
-    # 🔥 Step 4: Smart Routing for ML
-    if heuristic_score >= 120:
-        layer2_output = {
-            "ml_text_score": 95.0,
-            "ml_text_confidence": 1.0,
-            "note": "Skipped ML (high risk from heuristics)"
-        }
+    def run_layer2():
+        nonlocal layer2_output
+        # Smart routing based on heuristic score (wait for layer1 if needed)
+        import time
+        timeout = 0
+        while layer1_output is None and timeout < 100:  # Wait max 10s for layer1
+            time.sleep(0.1)
+            timeout += 1
 
-    elif heuristic_score <= 20:
-        layer2_output = {
-            "ml_text_score": 5.0,
-            "ml_text_confidence": 1.0,
-            "note": "Skipped ML (low risk from heuristics)"
-        }
+        hs = layer1_output.get("heuristic_score", 0) if layer1_output else 0
+        if hs >= 120:
+            layer2_output = {
+                "ml_text_score": 95.0,
+                "ml_text_confidence": 1.0,
+                "note": "Skipped ML (high risk from heuristics)"
+            }
+        elif hs <= 20:
+            layer2_output = {
+                "ml_text_score": 5.0,
+                "ml_text_confidence": 1.0,
+                "note": "Skipped ML (low risk from heuristics)"
+            }
+        else:
+            layer2_output = run_ml_model(layer0_output)
 
-    else:
-        layer2_output = run_ml_model(layer0_output)
+    # Start both in parallel
+    t1 = threading.Thread(target=run_layer1, daemon=True)
+    t2 = threading.Thread(target=run_layer2, daemon=True)
+    t1.start()
+    t2.start()
+    t1.join(timeout=30)  # Wait max 30s
+    t2.join(timeout=30)
 
-    # Add URL scoring to layer2 output
+    # Add URL scoring to layer2 output if available
     if url_analysis_input and url_analysis_input.get("has_urls"):
         layer2_output["url_ml_score"] = url_analysis_input.get("url_ml_score", 0)
         layer2_output["url_ml_confidence"] = url_analysis_input.get("url_ml_confidence", 0)
 
-    # 🔹 Step 4.5: Layer 3 - LLM Reasoning for Layer 2
-    layer2_reasoning = run_layer2_reasoning(
-        text=layer0_output.get("clean_text", ""),
-        layer1_output=layer1_output,
-        layer2_output=layer2_output
-    )
+    # 🔹 Step 4: PARALLELIZE LLM Reasoning for Layer 1 & 2
+    print("[*] Running LLM Reasoning for Layers 1 & 2 in PARALLEL...")
+    layer1_reasoning = None
+    layer2_reasoning = None
+
+    def run_l1_reasoning():
+        nonlocal layer1_reasoning
+        layer1_reasoning = run_layer1_reasoning(
+            text=layer0_output.get("clean_text", ""),
+            layer1_output=layer1_output
+        )
+
+    def run_l2_reasoning():
+        nonlocal layer2_reasoning
+        layer2_reasoning = run_layer2_reasoning(
+            text=layer0_output.get("clean_text", ""),
+            layer1_output=layer1_output,
+            layer2_output=layer2_output
+        )
+
+    # Start both in parallel
+    t3 = threading.Thread(target=run_l1_reasoning, daemon=True)
+    t4 = threading.Thread(target=run_l2_reasoning, daemon=True)
+    t3.start()
+    t4.start()
+    t3.join(timeout=30)
+    t4.join(timeout=30)
 
     # Add reasoning to layer2 output for frontend display
     layer2_output["reasoning"] = layer2_reasoning
 
-    # 🔹 Step 5: Layer 3 Part 1 (LLM Scoring) - Independent fraud risk assessment
+    # 🔹 Step 5: Layer 3 Part 1 (LLM Scoring)
     layer3_scoring = run_llm_scorer(
         text=layer0_output.get("clean_text", ""),
         layer0=layer0_output,

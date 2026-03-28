@@ -2,6 +2,7 @@ import React from "react";
 import { useNavigate } from "react-router-dom";
 import { Mail, Upload, User, Shield } from "lucide-react";
 import { motion } from "framer-motion";
+import Header from "../components/Header";
 
 export default function HomePage() {
   const navigate = useNavigate();
@@ -56,23 +57,7 @@ export default function HomePage() {
         }}
       />
 
-      {/* Header */}
-      <header className="relative z-10 border-b border-green-500/20 backdrop-blur-sm">
-        <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 border-2 border-green-500 rounded flex items-center justify-center">
-              <Shield className="w-6 h-6 text-green-500" />
-            </div>
-            <div>
-              <div className="text-sm font-bold text-white">NULLPOINT</div>
-              <div className="text-xs text-green-500">FRAUD ENDS HERE</div>
-            </div>
-          </div>
-          <button className="p-2 hover:bg-green-500/10 rounded transition">
-            <User className="w-6 h-6 text-gray-400" />
-          </button>
-        </div>
-      </header>
+      <Header />
 
       {/* Main Content */}
       <motion.div

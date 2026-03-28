@@ -3,6 +3,8 @@ import requests
 from typing import Dict, List, Tuple, Optional
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
 import torch
+from concurrent.futures import ThreadPoolExecutor, as_completed
+import time
 
 # URL regex pattern
 URL_PATTERN = r"https?://\S+(?=[\s,.\)\]]*(?:$|\s|\)|\.|\,|\]))"
@@ -37,13 +39,13 @@ def extract_urls(text: str) -> List[str]:
     return list(set(urls))  # Remove duplicates
 
 
-def fetch_url_content(url: str, timeout: int = 5) -> Optional[str]:
+def fetch_url_content(url: str, timeout: int = 3) -> Optional[str]:
     """
     Fetch website content from URL
 
     Args:
         url: URL to fetch
-        timeout: Request timeout in seconds
+        timeout: Request timeout in seconds (reduced from 5 to 3 for faster fails)
 
     Returns:
         Website text content or None if fetch fails
@@ -164,6 +166,7 @@ def _score_url_characteristics(url: str) -> int:
 def process_url_for_fraud_analysis(text: str) -> Dict:
     """
     Main function: Extract URLs, fetch content, and score with TinyBERT
+    OPTIMIZED: Uses parallel processing instead of sequential
 
     Args:
         text: Input text that may contain URLs
@@ -187,20 +190,45 @@ def process_url_for_fraud_analysis(text: str) -> Dict:
             "has_urls": False
         }
 
+    print(f"[*] Detected {len(urls)} URL(s) - Processing in PARALLEL (max 4 concurrent)")
+
     url_scores = []
 
-    print(f"[*] Detected {len(urls)} URL(s)")
+    # Parallel URL processing using ThreadPoolExecutor
+    # Max 4 concurrent requests to avoid overwhelming network
+    with ThreadPoolExecutor(max_workers=min(4, len(urls))) as executor:
+        # Submit all URL fetch tasks
+        future_to_url = {
+            executor.submit(fetch_url_content, url): url for url in urls
+        }
 
-    for url in urls:
-        print(f"    Processing URL: {url}")
+        # Process results as they complete
+        for future in as_completed(future_to_url):
+            url = future_to_url[future]
+            try:
+                website_content = future.result()
+                # Score with TinyBERT
+                score, confidence = score_url_with_tinybert(url, website_content)
+                url_scores.append((url, score, confidence))
+                print(f"      {url}: Score {score}/100, Confidence: {confidence:.2f}")
+            except Exception as e:
+                print(f"      {url}: Error - {e}")
+                url_scores.append((url, 50, 0.3))  # Default score for errors
 
-        # Fetch content
-        website_content = fetch_url_content(url)
+    # Calculate overall score and confidence
+    scores = [s for _, s, _ in url_scores]
+    confidences = [c for _, _, c in url_scores]
 
-        # Score with TinyBERT
-        score, confidence = score_url_with_tinybert(url, website_content)
-        url_scores.append((url, score, confidence))
-        print(f"      Score: {score}/100, Confidence: {confidence:.2f}")
+    overall_score = sum(scores) / len(scores) if scores else 0
+    overall_confidence = sum(confidences) / len(confidences) if confidences else 0.0
+
+    return {
+        "urls": urls,
+        "url_scores": url_scores,
+        "url_ml_score": overall_score,
+        "url_ml_confidence": overall_confidence,
+        "has_urls": len(urls) > 0
+    }
 
     # Calculate overall score and confidence
     scores = [s for _, s, _ in url_scores]

@@ -8,7 +8,8 @@ import {
 import HomePage from "./pages/HomePage";
 import MailTerminal from "./pages/MailTerminal";
 import UploadArtifacts from "./pages/UploadArtifacts";
-import ResultsPage from "./pages/ResultsPage";
+import ResultsPageNew from "./pages/ResultsPageNew";
+import ResultsHistory from "./pages/ResultsHistory";
 
 export default function App() {
   return (
@@ -17,7 +18,8 @@ export default function App() {
         <Route path="/" element={<HomePage />} />
         <Route path="/mail-terminal" element={<MailTerminal />} />
         <Route path="/upload-artifacts" element={<UploadArtifacts />} />
-        <Route path="/results" element={<ResultsPage />} />
+        <Route path="/results" element={<ResultsPageNew />} />
+        <Route path="/results-history" element={<ResultsHistory />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Router>

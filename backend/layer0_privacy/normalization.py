@@ -31,10 +31,22 @@ def process_privacy_layer(input_data):
     # Step 3: Feature extraction
     features = extract_features(normalized_text)
 
+    # Calculate confidence (based on how much was cleaned)
+    pii_removed = len(text) - len(clean_text)
+    clean_confidence = max(0, 1.0 - (pii_removed / max(len(text), 1))) if len(text) > 0 else 1.0
+
     return {
         "type": input_data["type"],
         "original_text": text,
         "clean_text": normalized_text,
         "features": features,
+        "clean_text_confidence": clean_confidence * 100,  # For frontend compatibility
+        "word_count": len(normalized_text.split()),  # For frontend compatibility
+        "pii_detected": pii_removed > 0,
+        "character_reduction": {
+            "original_length": len(text),
+            "cleaned_length": len(clean_text),
+            "normalized_length": len(normalized_text)
+        },
         "metadata": input_data["metadata"]
     }

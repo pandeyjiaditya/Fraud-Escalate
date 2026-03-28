@@ -7,7 +7,6 @@ import {
   detectFileType,
   getFileTypeDescription,
   getRiskColor,
-  getRiskLevel,
   FileSegregation,
   AnalysisResponse,
 } from '../services/analysisService';
@@ -314,7 +313,7 @@ export default function UploadArtifacts() {
                       <div className="flex-1">
                         <p className="text-white font-semibold text-sm">{resultId}</p>
                         <p className="text-xs text-gray-400">
-                          Score: {resultData.final.risk_score.toFixed(1)}/100 | {getRiskLevel(resultData.final.risk_score)}
+                          Score: {resultData.final.risk_score.toFixed(1)}/100 | {resultData.final.risk_level}
                         </p>
                       </div>
                       <button
@@ -479,14 +478,14 @@ export default function UploadArtifacts() {
                           <div className="grid grid-cols-2 gap-3">
                             <div>
                               <p className="text-gray-400 text-xs">Risk Score</p>
-                              <p className={`text-lg font-bold ${getRiskColor(results[fileId].final.risk_score)}`}>
+                              <p className={`text-lg font-bold ${getRiskColor(results[fileId].final.risk_color)}`}>
                                 {results[fileId].final.risk_score.toFixed(1)}/100
                               </p>
                             </div>
                             <div>
                               <p className="text-gray-400 text-xs">Risk Level</p>
-                              <p className={`text-lg font-bold ${getRiskColor(results[fileId].final.risk_score)}`}>
-                                {getRiskLevel(results[fileId].final.risk_score)}
+                              <p className={`text-lg font-bold ${getRiskColor(results[fileId].final.risk_color)}`}>
+                                {results[fileId].final.risk_level}
                               </p>
                             </div>
                           </div>
@@ -597,7 +596,7 @@ export default function UploadArtifacts() {
                       <p className="text-gray-400 text-xs">Risk Score</p>
                       <p
                         className={`text-lg font-bold ${getRiskColor(
-                          results['text_input'].final.risk_score
+                          results['text_input'].final.risk_color
                         )}`}
                       >
                         {results['text_input'].final.risk_score.toFixed(1)}/100
@@ -607,10 +606,10 @@ export default function UploadArtifacts() {
                       <p className="text-gray-400 text-xs">Risk Level</p>
                       <p
                         className={`text-lg font-bold ${getRiskColor(
-                          results['text_input'].final.risk_score
+                          results['text_input'].final.risk_color
                         )}`}
                       >
-                        {getRiskLevel(results['text_input'].final.risk_score)}
+                        {results['text_input'].final.risk_level}
                       </p>
                     </div>
                   </div>
@@ -731,7 +730,7 @@ export default function UploadArtifacts() {
                       <p className="text-gray-400 text-xs">Risk Score</p>
                       <p
                         className={`text-lg font-bold ${getRiskColor(
-                          textResult.final.risk_score
+                          textResult.final.risk_color
                         )}`}
                       >
                         {textResult.final.risk_score.toFixed(1)}/100
@@ -741,10 +740,10 @@ export default function UploadArtifacts() {
                       <p className="text-gray-400 text-xs">Risk Level</p>
                       <p
                         className={`text-lg font-bold ${getRiskColor(
-                          textResult.final.risk_score
+                          textResult.final.risk_color
                         )}`}
                       >
-                        {getRiskLevel(textResult.final.risk_score)}
+                        {textResult.final.risk_level}
                       </p>
                     </div>
                   </div>

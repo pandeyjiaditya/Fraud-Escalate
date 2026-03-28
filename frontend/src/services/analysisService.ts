@@ -40,6 +40,8 @@ export interface AnalysisResponse {
   };
   final: {
     risk_score: number;
+    risk_level: string;
+    risk_color: string;
     decision: string;
     confidence: number;
     context_type: string;
@@ -101,15 +103,17 @@ export function getFileTypeDescription(type: string): string {
   return descriptions[type] || `File (${type})`;
 }
 
-export function getRiskColor(score: number): string {
-  if (score >= 70) return "text-red-500";
-  if (score >= 40) return "text-orange-500";
-  return "text-green-500";
+// Color mapping - received from backend
+const colorMap: Record<string, string> = {
+  red: "text-red-500",
+  orange: "text-orange-500",
+  green: "text-green-500"
+};
+
+export function getRiskColor(colorCode: string): string {
+  return colorMap[colorCode] || "text-green-500";
 }
 
-export function getRiskLevel(score: number): string {
-  if (score >= 70) return "CRITICAL";
-  if (score >= 40) return "HIGH";
-  if (score >= 20) return "MEDIUM";
-  return "LOW";
+export function getRiskLevel(level: string): string {
+  return level; // Already computed on backend
 }
