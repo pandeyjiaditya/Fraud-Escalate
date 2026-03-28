@@ -22,13 +22,28 @@ export interface AnalysisResponse {
   };
   layer0: Record<string, any>;
   layer1: Record<string, any>;
+  layer1_reasoning?: {
+    flag_analysis?: Record<string, string>;
+    overall_assessment?: string;
+  };
   layer2: Record<string, any>;
+  layer2_reasoning?: {
+    text_analysis?: string;
+    ml_patterns_detected?: string[];
+    comparison_with_heuristics?: string;
+    risk_level?: string;
+    model_confidence_assessment?: string;
+  };
   layer3_scoring: Record<string, any>;
+  layer3_explanation?: {
+    explanation?: string;
+  };
   final: {
     risk_score: number;
     decision: string;
     confidence: number;
     context_type: string;
+    reasoning?: string;
   };
 }
 

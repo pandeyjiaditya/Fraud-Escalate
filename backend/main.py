@@ -110,6 +110,9 @@ def analyze(text: str):
         layer2_output=layer2_output
     )
 
+    # Add reasoning to layer2 output for frontend display
+    layer2_output["reasoning"] = layer2_reasoning
+
     # 🔹 Step 5: Layer 3 Part 1 (LLM Scoring) - Independent fraud risk assessment
     layer3_scoring = run_llm_scorer(
         text=layer0_output.get("clean_text", ""),
@@ -238,6 +241,9 @@ async def analyze_file(file: UploadFile = File(...)):
                 layer1_output=layer1_output,
                 layer2_output=layer2_output
             )
+
+            # Add reasoning to layer2 output for frontend display
+            layer2_output["reasoning"] = layer2_reasoning
 
             # 🔹 Step 5: Layer 3 Part 1 (LLM Scoring) - Independent fraud risk assessment
             layer3_scoring = run_llm_scorer(

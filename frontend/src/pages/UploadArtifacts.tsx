@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Shield, Upload, X, CheckCircle2, AlertCircle, Loader, FileText } from 'lucide-react';
+import { ArrowLeft, Shield, Upload, X, CheckCircle2, AlertCircle, Loader, FileText, Trash2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   analyzeFile,
@@ -11,6 +11,9 @@ import {
   FileSegregation,
   AnalysisResponse,
 } from '../services/analysisService';
+
+const STORAGE_KEY = 'fraud_analysis_results';
+const STORAGE_FILES_KEY = 'fraud_analysis_files';
 
 export default function UploadArtifacts() {
   const navigate = useNavigate();
@@ -24,6 +27,44 @@ export default function UploadArtifacts() {
   const [textAnalyzing, setTextAnalyzing] = useState(false);
   const [textResult, setTextResult] = useState<AnalysisResponse | null>(null);
   const [textCurrentLayer, setTextCurrentLayer] = useState(0);
+
+  // Load stored results from localStorage on mount
+  useEffect(() => {
+    try {
+      const storedResults = localStorage.getItem(STORAGE_KEY);
+      const storedFiles = localStorage.getItem(STORAGE_FILES_KEY);
+
+      if (storedResults) {
+        setResults(JSON.parse(storedResults));
+      }
+      if (storedFiles) {
+        setFiles(JSON.parse(storedFiles));
+      }
+    } catch (error) {
+      console.error('Error loading stored data:', error);
+    }
+  }, []);
+
+  // Save results to localStorage whenever they change
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(results));
+      localStorage.setItem(STORAGE_FILES_KEY, JSON.stringify(files));
+    } catch (error) {
+      console.error('Error saving data:', error);
+    }
+  }, [results, files]);
+
+  const clearAllData = () => {
+    if (window.confirm('Are you sure you want to clear all analysis data?')) {
+      setResults({});
+      setFiles([]);
+      setTextResult(null);
+      setTextInput('');
+      localStorage.removeItem(STORAGE_KEY);
+      localStorage.removeItem(STORAGE_FILES_KEY);
+    }
+  };
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
@@ -100,7 +141,13 @@ export default function UploadArtifacts() {
         content_preview: response.input.content.substring(0, 200),
         metadata: response.input.metadata,
       };
-      setResults((prev) => ({ ...prev, [fileId]: response }));
+
+      // Store in localStorage with unique key
+      setResults((prev) => {
+        const updated = { ...prev, [fileId]: response };
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+        return updated;
+      });
     } catch (error) {
       clearInterval(progressInterval);
       console.error('Analysis error:', error);
@@ -147,6 +194,11 @@ export default function UploadArtifacts() {
 
       console.log('Text analysis response:', response);
       setTextResult(response);
+
+      // Store in localStorage
+      const storedResults = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+      storedResults['text_input'] = response;
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(storedResults));
     } catch (error) {
       clearInterval(progressInterval);
       console.error('Text analysis error:', error);
@@ -166,22 +218,34 @@ export default function UploadArtifacts() {
     <div className="min-h-screen bg-black text-white">
       {/* Header */}
       <header className="border-b border-green-500/20 backdrop-blur-sm sticky top-0 z-40">
-        <div className="max-w-7xl mx-auto px-6 py-4 flex items-center gap-4">
-          <button
-            onClick={() => navigate('/')}
-            className="p-2 hover:bg-green-500/10 rounded transition"
-          >
-            <ArrowLeft className="w-6 h-6 text-green-500" />
-          </button>
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 border-2 border-green-500 rounded flex items-center justify-center">
-              <Shield className="w-6 h-6 text-green-500" />
-            </div>
-            <div>
-              <div className="text-sm font-bold text-white">NULLPOINT</div>
-              <div className="text-xs text-green-500">Upload Artifacts</div>
+        <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => navigate('/')}
+              className="p-2 hover:bg-green-500/10 rounded transition"
+            >
+              <ArrowLeft className="w-6 h-6 text-green-500" />
+            </button>
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 border-2 border-green-500 rounded flex items-center justify-center">
+                <Shield className="w-6 h-6 text-green-500" />
+              </div>
+              <div>
+                <div className="text-sm font-bold text-white">NULLPOINT</div>
+                <div className="text-xs text-green-500">Upload Artifacts</div>
+              </div>
             </div>
           </div>
+          {(files.length > 0 || textResult) && (
+            <button
+              onClick={clearAllData}
+              className="p-2 hover:bg-red-500/10 text-red-500 rounded transition flex items-center gap-2"
+              title="Clear all analysis data"
+            >
+              <Trash2 className="w-5 h-5" />
+              <span className="text-sm font-semibold">Clear All</span>
+            </button>
+          )}
         </div>
       </header>
 
@@ -228,6 +292,42 @@ export default function UploadArtifacts() {
         {/* FILE UPLOAD TAB */}
         {tab === 'files' && (
           <>
+            {/* Previous Results Section */}
+            {Object.keys(results).length > 0 && (
+              <motion.div
+                className="mb-8 p-6 bg-blue-500/5 border border-blue-500/20 rounded-lg"
+                initial={{ opacity: 0, y: -20 }}
+                animate={{ opacity: 1, y: 0 }}
+              >
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold text-blue-400">
+                    📊 Previous Analysis Results ({Object.keys(results).length})
+                  </h3>
+                </div>
+                <div className="space-y-2">
+                  {Object.entries(results).map(([resultId, resultData]) => (
+                    <motion.div
+                      key={resultId}
+                      className="bg-black/40 rounded p-3 flex items-center justify-between hover:bg-black/60 transition"
+                      whileHover={{ scale: 1.02 }}
+                    >
+                      <div className="flex-1">
+                        <p className="text-white font-semibold text-sm">{resultId}</p>
+                        <p className="text-xs text-gray-400">
+                          Score: {resultData.final.risk_score.toFixed(1)}/100 | {getRiskLevel(resultData.final.risk_score)}
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => navigate('/results', { state: { result: resultData } })}
+                        className="ml-4 px-3 py-1 bg-blue-500/20 border border-blue-500 text-blue-400 rounded text-xs font-semibold hover:bg-blue-500/30 transition"
+                      >
+                        View
+                      </button>
+                    </motion.div>
+                  ))}
+                </div>
+              </motion.div>
+            )}
         {/* Upload Zone */}
         <motion.div
           className={`border-2 border-dashed rounded-lg p-12 text-center transition duration-300 mb-8 ${
@@ -481,6 +581,61 @@ export default function UploadArtifacts() {
         {/* DIRECT TEXT INPUT TAB */}
         {tab === 'text' && (
           <>
+            {/* Previous Text Results */}
+            {results['text_input'] && (
+              <motion.div
+                className="mb-8 p-6 bg-blue-500/5 border border-blue-500/20 rounded-lg"
+                initial={{ opacity: 0, y: -20 }}
+                animate={{ opacity: 1, y: 0 }}
+              >
+                <h3 className="text-lg font-semibold text-blue-400 mb-4">
+                  📄 Previous Text Analysis
+                </h3>
+                <div className="bg-black/40 rounded p-4 space-y-3">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <p className="text-gray-400 text-xs">Risk Score</p>
+                      <p
+                        className={`text-lg font-bold ${getRiskColor(
+                          results['text_input'].final.risk_score
+                        )}`}
+                      >
+                        {results['text_input'].final.risk_score.toFixed(1)}/100
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-gray-400 text-xs">Risk Level</p>
+                      <p
+                        className={`text-lg font-bold ${getRiskColor(
+                          results['text_input'].final.risk_score
+                        )}`}
+                      >
+                        {getRiskLevel(results['text_input'].final.risk_score)}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => navigate('/results', { state: { result: results['text_input'] } })}
+                      className="flex-1 py-2 px-3 bg-blue-500/20 border border-blue-500 text-blue-400 rounded font-semibold hover:bg-blue-500/30 transition text-sm"
+                    >
+                      View Full Report
+                    </button>
+                    <button
+                      onClick={() => {
+                        setTextResult(null);
+                        const updated = { ...results };
+                        delete updated['text_input'];
+                        setResults(updated);
+                      }}
+                      className="py-2 px-3 bg-red-500/20 border border-red-500 text-red-400 rounded font-semibold hover:bg-red-500/30 transition text-sm"
+                    >
+                      Clear
+                    </button>
+                  </div>
+                </div>
+              </motion.div>
+            )}
             <div className="space-y-4">
               {/* Text Input Area */}
               <div>
