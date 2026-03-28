@@ -1,11 +1,13 @@
 """
 Audio transcription using OpenAI's Whisper model.
 Converts audio files to text for fraud detection analysis.
+Includes deepfake detection for audio integrity verification.
 """
 
 import whisper
 import os
 from typing import Optional
+from .audio_deepfake_processor import process_audio_for_deepfake_analysis
 
 
 class AudioTranscriber:
@@ -36,7 +38,7 @@ class AudioTranscriber:
 
     def transcribe_audio(self, file_path: str, language: Optional[str] = None) -> dict:
         """
-        Transcribe audio file to text.
+        Transcribe audio file to text with deepfake detection.
 
         Args:
             file_path: Path to audio file (mp3, wav, flac, aac, ogg, etc.)
@@ -48,6 +50,7 @@ class AudioTranscriber:
                 - language: Detected/specified language
                 - segments: List of timestamped segments
                 - confidence: Average confidence score (if available)
+                - deepfake_analysis: Deepfake detection results
         """
         if not os.path.exists(file_path):
             raise FileNotFoundError(f"Audio file not found: {file_path}")
@@ -73,11 +76,24 @@ class AudioTranscriber:
                 # Convert log probabilities to approximate confidence (0-1)
                 avg_confidence = sum(confidences) / len(confidences)
 
+        # Run deepfake detection
+        try:
+            deepfake_result = process_audio_for_deepfake_analysis(file_path)
+        except Exception as e:
+            print(f"Warning: Deepfake detection failed: {str(e)}")
+            deepfake_result = {
+                "type": "audio_deepfake",
+                "deepfake_score": 0.5,
+                "is_likely_deepfake": False,
+                "metadata": {"error": str(e), "detection_model": "rawnet3"}
+            }
+
         return {
             "text": result["text"].strip(),
             "language": result.get("language", "unknown"),
             "segments": result.get("segments", []),
-            "confidence": avg_confidence
+            "confidence": avg_confidence,
+            "deepfake_analysis": deepfake_result
         }
 
 
@@ -92,17 +108,23 @@ def get_transcriber(model_size: str = "base") -> AudioTranscriber:
     return _transcriber
 
 
-def transcribe_audio_file(file_path: str, language: Optional[str] = None) -> str:
+def transcribe_audio_file(file_path: str, language: Optional[str] = None) -> dict:
     """
-    Simple wrapper to transcribe audio file and return text.
+    Transcribe audio file and return text with deepfake analysis.
 
     Args:
         file_path: Path to audio file
         language: Optional language code
 
     Returns:
-        Transcribed text
+        Dictionary with transcribed text and deepfake metadata
     """
     transcriber = get_transcriber()
     result = transcriber.transcribe_audio(file_path, language)
-    return result["text"]
+
+    return {
+        "text": result["text"],
+        "language": result.get("language", "unknown"),
+        "confidence": result.get("confidence"),
+        "deepfake_analysis": result.get("deepfake_analysis", {})
+    }

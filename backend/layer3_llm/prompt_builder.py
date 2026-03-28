@@ -2,6 +2,7 @@ def build_prompt(text, layer1, layer2, final):
 
     flags = layer1.get("flags", [])
     heuristic_score = layer1.get("heuristic_score", 0)
+    heuristic_confidence = layer1.get("confidence", 0)
 
     ml_prob = 0
     ml_conf = 0
@@ -25,6 +26,7 @@ Analyze the following message and provide a clear, professional explanation.
 --- DETECTION SIGNALS ---
 Heuristic Flags: {flags}
 Heuristic Score: {heuristic_score}
+Heuristic Confidence: {heuristic_confidence}
 
 ML Probability of Fraud: {ml_prob}
 ML Confidence: {ml_conf}

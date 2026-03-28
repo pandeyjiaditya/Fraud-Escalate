@@ -173,6 +173,12 @@ async def analyze_file(file: UploadFile = File(...)):
                 layer2_output["url_ml_score"] = url_analysis.get("url_ml_score", 0)
                 layer2_output["url_ml_confidence"] = url_analysis.get("url_ml_confidence", 0)
 
+            # Add deepfake scoring for audio
+            deepfake_analysis = input_data.get("metadata", {}).get("deepfake_analysis", {})
+            if deepfake_analysis and deepfake_analysis.get("deepfake_score") is not None:
+                layer2_output["deepfake_score"] = deepfake_analysis.get("deepfake_score", 0) * 100
+                layer2_output["deepfake_confidence"] = deepfake_analysis.get("metadata", {}).get("deepfake_confidence", 0)
+
             # Prepare meta info for context-aware scoring
             url_analysis = input_data.get("metadata", {}).get("url_analysis", {})
             meta = {

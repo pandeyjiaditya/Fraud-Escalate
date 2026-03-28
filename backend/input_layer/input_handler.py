@@ -54,7 +54,8 @@ def process_file_input(file_path: str):
     # Audio detection - Transcribe and process as text
     elif file_path_lower.endswith((".mp3", ".wav", ".flac", ".aac", ".ogg", ".m4a", ".wma")):
         print(f"Processing audio file: {file_path}")
-        transcribed_text = transcribe_audio_file(file_path)
+        audio_result = transcribe_audio_file(file_path)
+        transcribed_text = audio_result["text"]
         print(f"Audio transcribed successfully: {len(transcribed_text)} characters")
 
         # Extract and score URLs from transcribed text
@@ -67,7 +68,9 @@ def process_file_input(file_path: str):
             "metadata": {
                 "timestamp": str(datetime.now()),
                 "original_file": file_path,
-                "url_analysis": url_analysis
+                "url_analysis": url_analysis,
+                "deepfake_analysis": audio_result.get("deepfake_analysis", {}),
+                "transcription_confidence": audio_result.get("confidence")
             }
         }
 
