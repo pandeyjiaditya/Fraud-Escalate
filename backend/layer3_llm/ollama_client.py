@@ -8,7 +8,7 @@ def call_ollama(prompt):
     response = requests.post(
         OLLAMA_URL,
         json={
-            "model": "mistral",
+            "model": "llama3",
             "messages": [
                 {"role": "user", "content": prompt}
             ],
