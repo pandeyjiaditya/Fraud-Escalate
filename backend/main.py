@@ -16,11 +16,13 @@ from layer1_heuristics.heuristic_engine import run_heuristics
 # Layer 2
 from layer2_ml.ml_engine import run_ml_model
 
+# Layer 3 (LLM) - Split into scorer, reasoners, and explanation
+from layer3_llm.llm_scorer import run_llm_scorer
+from layer3_llm.layer_reasoner import run_layer1_reasoning, run_layer2_reasoning
+from layer3_llm.llm_engine import run_llm_explanation
+
 # Risk Engine
 from risk_engine.decision_engine import make_decision
-
-# Layer 3 (LLM)
-from layer3_llm.llm_engine import run_llm
 
 
 app = FastAPI(
@@ -63,6 +65,12 @@ def analyze(text: str):
     layer1_output = run_heuristics(layer0_output)
     heuristic_score = layer1_output.get("heuristic_score", 0)
 
+    # 🔹 Step 3.5: Layer 3 - LLM Reasoning for Layer 1
+    layer1_reasoning = run_layer1_reasoning(
+        text=layer0_output.get("clean_text", ""),
+        layer1_output=layer1_output
+    )
+
     # 🔥 Step 4: Smart Routing for ML
     if heuristic_score >= 120:
         layer2_output = {
@@ -86,6 +94,25 @@ def analyze(text: str):
         layer2_output["url_ml_score"] = url_analysis_input.get("url_ml_score", 0)
         layer2_output["url_ml_confidence"] = url_analysis_input.get("url_ml_confidence", 0)
 
+    # 🔹 Step 4.5: Layer 3 - LLM Reasoning for Layer 2
+    layer2_reasoning = run_layer2_reasoning(
+        text=layer0_output.get("clean_text", ""),
+        layer1_output=layer1_output,
+        layer2_output=layer2_output
+    )
+
+    # 🔹 Step 5: Layer 3 Part 1 (LLM Scoring) - Independent fraud risk assessment
+    layer3_scoring = run_llm_scorer(
+        text=layer0_output.get("clean_text", ""),
+        layer0=layer0_output,
+        layer1=layer1_output,
+        layer2=layer2_output
+    )
+
+    # Add LLM score to layer2 for Risk Engine fusion
+    layer2_output["llm_score"] = layer3_scoring.get("llm_score", 0)
+    layer2_output["llm_confidence"] = layer3_scoring.get("llm_confidence", 0)
+
     # Prepare meta info for context-aware scoring
     meta = {
         "has_url": url_analysis_input.get("has_urls", False),
@@ -93,14 +120,16 @@ def analyze(text: str):
         "ocr_quality": layer0_output.get("ocr_quality", 0.8)
     }
 
-    # 🔹 Step 5: Risk Engine (Final Decision)
+    # 🔹 Step 6: Risk Engine (Final Decision with all layer signals)
     final_output = make_decision(layer1_output, layer2_output, context_type, meta)
 
-    # 🔹 Step 6: Layer 3 (LLM Explanation)
-    llm_output = run_llm(
+    # 🔹 Step 7: Layer 3 Part 2 (LLM Explanation) - Explain final decision
+    layer3_explanation = run_llm_explanation(
         text=layer0_output.get("clean_text", ""),
+        layer0=layer0_output,
         layer1=layer1_output,
         layer2=layer2_output,
+        layer3_scoring=layer3_scoring,
         final=final_output
     )
 
@@ -111,9 +140,12 @@ def analyze(text: str):
         "input": input_data,
         "layer0": layer0_output,
         "layer1": layer1_output,
+        "layer1_reasoning": layer1_reasoning,
         "layer2": layer2_output,
+        "layer2_reasoning": layer2_reasoning,
+        "layer3_scoring": layer3_scoring,
         "final": final_output,
-        "layer3": llm_output
+        "layer3_explanation": layer3_explanation
     }
 
 
@@ -157,6 +189,12 @@ async def analyze_file(file: UploadFile = File(...)):
             layer1_output = run_heuristics(layer0_output)
             heuristic_score = layer1_output.get("heuristic_score", 0)
 
+            # 🔹 Step 3.5: Layer 3 - LLM Reasoning for Layer 1
+            layer1_reasoning = run_layer1_reasoning(
+                text=layer0_output.get("clean_text", ""),
+                layer1_output=layer1_output
+            )
+
             # 🔥 Step 4: Smart Routing for ML
             if heuristic_score >= 120:
                 layer2_output = {
@@ -185,6 +223,25 @@ async def analyze_file(file: UploadFile = File(...)):
                 layer2_output["deepfake_score"] = deepfake_analysis_input.get("deepfake_score", 0) * 100
                 layer2_output["deepfake_confidence"] = deepfake_analysis_input.get("metadata", {}).get("deepfake_confidence", 0)
 
+            # 🔹 Step 4.5: Layer 3 - LLM Reasoning for Layer 2
+            layer2_reasoning = run_layer2_reasoning(
+                text=layer0_output.get("clean_text", ""),
+                layer1_output=layer1_output,
+                layer2_output=layer2_output
+            )
+
+            # 🔹 Step 5: Layer 3 Part 1 (LLM Scoring) - Independent fraud risk assessment
+            layer3_scoring = run_llm_scorer(
+                text=layer0_output.get("clean_text", ""),
+                layer0=layer0_output,
+                layer1=layer1_output,
+                layer2=layer2_output
+            )
+
+            # Add LLM score to layer2 for Risk Engine fusion
+            layer2_output["llm_score"] = layer3_scoring.get("llm_score", 0)
+            layer2_output["llm_confidence"] = layer3_scoring.get("llm_confidence", 0)
+
             # Prepare meta info for context-aware scoring
             meta = {
                 "has_url": url_analysis_input.get("has_urls", False),
@@ -192,14 +249,16 @@ async def analyze_file(file: UploadFile = File(...)):
                 "ocr_quality": layer0_output.get("ocr_quality", input_data.get("metadata", {}).get("ocr_quality", 0.8))
             }
 
-            # 🔹 Step 5: Risk Engine (Final Decision)
+            # 🔹 Step 6: Risk Engine (Final Decision with all layer signals)
             final_output = make_decision(layer1_output, layer2_output, context_type, meta)
 
-            # 🔹 Step 6: Layer 3 (LLM Explanation)
-            llm_output = run_llm(
+            # 🔹 Step 7: Layer 3 Part 2 (LLM Explanation) - Explain final decision
+            layer3_explanation = run_llm_explanation(
                 text=layer0_output.get("clean_text", ""),
+                layer0=layer0_output,
                 layer1=layer1_output,
                 layer2=layer2_output,
+                layer3_scoring=layer3_scoring,
                 final=final_output
             )
 
@@ -211,9 +270,12 @@ async def analyze_file(file: UploadFile = File(...)):
                 "input": input_data,
                 "layer0": layer0_output,
                 "layer1": layer1_output,
+                "layer1_reasoning": layer1_reasoning,
                 "layer2": layer2_output,
+                "layer2_reasoning": layer2_reasoning,
+                "layer3_scoring": layer3_scoring,
                 "final": final_output,
-                "layer3": llm_output
+                "layer3_explanation": layer3_explanation
             }
         else:
             # For image/video, return basic info (no fraud analysis yet)
