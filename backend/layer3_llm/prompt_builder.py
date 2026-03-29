@@ -1,18 +1,24 @@
 def build_prompt(text, layer1, layer2, final):
     """Backward compatible prompt builder (old signature)"""
-    return build_prompt_explanation(text, {}, layer1, layer2, {"llm_score": 0}, final)
+    return build_prompt_explanation(text, {}, layer1, layer2, {"score_3": 0, "confidence_3": 0, "summary_1": "", "summary_2": ""}, final)
 
 
 def build_prompt_explanation(text, layer0, layer1, layer2, layer3_scoring, final):
     """
-    Build comprehensive explanation prompt using all layer outputs.
+    Build FINAL explanation prompt using all layer outputs + Layer 3 summaries.
+
+    This is used for the SECOND (final) LLM call.
 
     Args:
         text: clean message text
         layer0: dict with privacy/features
         layer1: dict with heuristic outputs
         layer2: dict with ML model outputs
-        layer3_scoring: dict with LLM scoring (llm_score, llm_confidence, reasoning)
+        layer3_scoring: dict with Layer 3 analysis:
+            - summary_1: LLM explanation of heuristic findings
+            - summary_2: LLM explanation of ML findings
+            - score_3: LLM's fraud risk score
+            - confidence_3: LLM's confidence
         final: dict with final risk score and decision from Risk Engine
     """
 
@@ -36,10 +42,11 @@ def build_prompt_explanation(text, layer0, layer1, layer2, layer3_scoring, final
         url_ml_score = layer2.get("url_ml_score", 0)
         deepfake_score = layer2.get("deepfake_score", 0)
 
-    # Layer 3 LLM Scoring
-    llm_score = layer3_scoring.get("llm_score", 0)
-    llm_confidence = layer3_scoring.get("llm_confidence", 0)
-    llm_reasoning = layer3_scoring.get("reasoning", "")
+    # Layer 3 LLM Analysis (from FIRST LLM call)
+    summary_1 = layer3_scoring.get("summary_1", "") if layer3_scoring else ""
+    summary_2 = layer3_scoring.get("summary_2", "") if layer3_scoring else ""
+    score_3 = layer3_scoring.get("score_3", 0) if layer3_scoring else 0
+    confidence_3 = layer3_scoring.get("confidence_3", 0) if layer3_scoring else 0
 
     # Final Risk Engine output
     risk_score = final.get("risk_score", 0)
@@ -56,26 +63,21 @@ Based on comprehensive analysis from multiple detection layers, provide a clear,
 
 --- SIGNAL ANALYSIS ---
 
-Layer 0 (Privacy & Features):
-- Entities: {features.get('entity_count', 'N/A')}
-- Links: {features.get('link_count', 'N/A')}
-- Urgency Keywords: {features.get('urgency_keywords', [])}
-- Credential Request: {features.get('credential_request', False)}
-
 Layer 1 (Heuristic Detection):
-- Flags: {flags}
+- Detected Flags: {flags}
 - Score: {heuristic_score}/100
 - Confidence: {heuristic_confidence}
+- Analysis: {summary_1}
 
 Layer 2 (ML Models):
 - Text Score: {ml_text_score}/100
 - URL Score: {url_ml_score}/100
 - Deepfake Score: {deepfake_score}/100
+- Analysis: {summary_2}
 
 Layer 3 (LLM Analysis):
-- LLM Score: {llm_score}/100
-- LLM Confidence: {llm_confidence}
-- LLM Reasoning: {llm_reasoning}
+- LLM Score: {score_3}/100
+- LLM Confidence: {confidence_3}
 
 --- FINAL DECISION (Risk Engine Fusion) ---
 - Final Risk Score: {risk_score}/100
@@ -83,12 +85,13 @@ Layer 3 (LLM Analysis):
 - Confidence: {final_conf}
 
 --- INSTRUCTIONS ---
-1. Explain why the Risk Engine reached this decision.
-2. Highlight the key signal layers that contributed most.
-3. Note any signal agreement or disagreement.
-4. Describe the fraud indicators (urgency, phishing, credential requests, suspicious links, deepfake, etc.).
-5. Keep explanation concise (4–6 lines).
-6. Use simple, professional language.
+1. Synthesize findings from all layers (heuristics, ML, and LLM analysis provided above)
+2. Explain why the Risk Engine reached the "{decision}" decision
+3. Highlight key signals that contributed most
+4. Note any signal agreement or disagreement
+5. Describe the specific fraud indicators detected (urgency, phishing, credential requests, suspicious links, etc.)
+6. Keep explanation concise (4–6 lines)
+7. Use simple, professional language suitable for end users
 
 --- OUTPUT FORMAT ---
 Explanation:

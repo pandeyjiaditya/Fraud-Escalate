@@ -20,9 +20,8 @@ from layer1_heuristics.heuristic_engine import run_heuristics
 # Layer 2
 from layer2_ml.ml_engine import run_ml_model
 
-# Layer 3 (LLM) - Split into scorer, reasoners, and explanation
+# Layer 3 (LLM) - Now consolidated into single unified call
 from layer3_llm.llm_scorer import run_llm_scorer
-from layer3_llm.layer_reasoner import run_layer1_reasoning, run_layer2_reasoning
 from layer3_llm.llm_engine import run_llm_explanation
 
 # Risk Engine
@@ -229,55 +228,10 @@ def analyze(text: str):
             layer2_output["url_ml_score"] = url_analysis_input.get("url_ml_score", 0)
             layer2_output["url_ml_confidence"] = url_analysis_input.get("url_ml_confidence", 0)
 
-        # 🔹 Step 4: PARALLELIZE LLM Reasoning for Layer 1 & 2
-        print("[*] Running LLM Reasoning for Layers 1 & 2 in PARALLEL...")
-        layer1_reasoning = None
-        layer2_reasoning = None
+        # 🔹 Step 4: Layer 3 UNIFIED LLM (FIRST LLM CALL)
+        print("[*] Running Layer 3 (UNIFIED): LLM Reasoning + Scoring...")
+        layer3_scoring = None
 
-        def run_l1_reasoning():
-            nonlocal layer1_reasoning
-            try:
-                layer1_reasoning = run_layer1_reasoning(
-                    text=layer0_output.get("clean_text", ""),
-                    layer1_output=layer1_output
-                )
-            except Exception as e:
-                print(f"[!] Layer 1 reasoning error: {e}")
-                layer1_reasoning = {
-                    "flag_analysis": {},
-                    "overall_assessment": f"Error: {str(e)}"
-                }
-
-        def run_l2_reasoning():
-            nonlocal layer2_reasoning
-            try:
-                layer2_reasoning = run_layer2_reasoning(
-                    text=layer0_output.get("clean_text", ""),
-                    layer1_output=layer1_output,
-                    layer2_output=layer2_output
-                )
-            except Exception as e:
-                print(f"[!] Layer 2 reasoning error: {e}")
-                layer2_reasoning = {
-                    "text_analysis": f"Error: {str(e)}",
-                    "ml_patterns_detected": [],
-                    "comparison_with_heuristics": "",
-                    "risk_level": "unknown"
-                }
-
-        # Start both in parallel
-        t3 = threading.Thread(target=run_l1_reasoning, daemon=True)
-        t4 = threading.Thread(target=run_l2_reasoning, daemon=True)
-        t3.start()
-        t4.start()
-        t3.join(timeout=30)
-        t4.join(timeout=30)
-
-        # Add reasoning to layer2 output for frontend display
-        if layer2_reasoning:
-            layer2_output["reasoning"] = layer2_reasoning
-
-        # 🔹 Step 5: Layer 3 Part 1 (LLM Scoring)
         try:
             layer3_scoring = run_llm_scorer(
                 text=layer0_output.get("clean_text", ""),
@@ -288,14 +242,15 @@ def analyze(text: str):
         except Exception as e:
             print(f"[!] Layer 3 scoring error: {e}")
             layer3_scoring = {
-                "llm_score": 50.0,
-                "llm_confidence": 0,
-                "error": str(e)
+                "summary_1": f"Error analyzing heuristics: {str(e)}",
+                "summary_2": f"Error analyzing ML: {str(e)}",
+                "score_3": 50.0,
+                "confidence_3": 0
             }
 
         # Add LLM score to layer2 for Risk Engine fusion
-        layer2_output["llm_score"] = layer3_scoring.get("llm_score", 0)
-        layer2_output["llm_confidence"] = layer3_scoring.get("llm_confidence", 0)
+        layer2_output["llm_score"] = layer3_scoring.get("score_3", 0)
+        layer2_output["llm_confidence"] = layer3_scoring.get("confidence_3", 0)
 
         # Prepare meta info for context-aware scoring
         meta = {
@@ -304,7 +259,7 @@ def analyze(text: str):
             "ocr_quality": layer0_output.get("ocr_quality", 0.8)
         }
 
-        # 🔹 Step 6: Risk Engine (Final Decision with all layer signals)
+        # 🔹 Step 5: Risk Engine (Final Decision with all layer signals)
         try:
             final_output = make_decision(layer1_output, layer2_output, context_type, meta)
         except Exception as e:
@@ -319,7 +274,7 @@ def analyze(text: str):
                 "reasoning": f"Error in risk calculation: {str(e)}"
             }
 
-        # 🔹 Step 7: Layer 3 Part 2 (LLM Explanation) - Explain final decision
+        # 🔹 Step 6: Layer 3 Part 2 (SECOND LLM CALL - Final Explanation)
         try:
             layer3_explanation = run_llm_explanation(
                 text=layer0_output.get("clean_text", ""),
@@ -342,9 +297,7 @@ def analyze(text: str):
             "input": input_data,
             "layer0": layer0_output,
             "layer1": layer1_output,
-            "layer1_reasoning": layer1_reasoning,
             "layer2": layer2_output,
-            "layer2_reasoning": layer2_reasoning,
             "layer3_scoring": layer3_scoring,
             "final": final_output,
             "layer3_explanation": layer3_explanation
@@ -410,20 +363,7 @@ async def analyze_file(file: UploadFile = File(...)):
                     }
                 heuristic_score = layer1_output.get("heuristic_score", 0)
 
-                # 🔹 Step 3.5: Layer 3 - LLM Reasoning for Layer 1
-                try:
-                    layer1_reasoning = run_layer1_reasoning(
-                        text=layer0_output.get("clean_text", ""),
-                        layer1_output=layer1_output
-                    )
-                except Exception as e:
-                    print(f"[!] Layer 1 reasoning error: {e}")
-                    layer1_reasoning = {
-                        "flag_analysis": {},
-                        "overall_assessment": f"Error: {str(e)}"
-                    }
-
-                # 🔥 Step 4: Smart Routing for ML
+                # 🥥 Step 4: Smart Routing for ML
                 if heuristic_score >= 120:
                     layer2_output = {
                         "ml_text_score": 95.0,
@@ -459,26 +399,8 @@ async def analyze_file(file: UploadFile = File(...)):
                     layer2_output["deepfake_score"] = deepfake_analysis_input.get("deepfake_score", 0) * 100
                     layer2_output["deepfake_confidence"] = deepfake_analysis_input.get("metadata", {}).get("deepfake_confidence", 0)
 
-                # 🔹 Step 4.5: Layer 3 - LLM Reasoning for Layer 2
-                try:
-                    layer2_reasoning = run_layer2_reasoning(
-                        text=layer0_output.get("clean_text", ""),
-                        layer1_output=layer1_output,
-                        layer2_output=layer2_output
-                    )
-                except Exception as e:
-                    print(f"[!] Layer 2 reasoning error: {e}")
-                    layer2_reasoning = {
-                        "text_analysis": f"Error: {str(e)}",
-                        "ml_patterns_detected": [],
-                        "comparison_with_heuristics": "",
-                        "risk_level": "unknown"
-                    }
-
-                # Add reasoning to layer2 output for frontend display
-                layer2_output["reasoning"] = layer2_reasoning
-
-                # 🔹 Step 5: Layer 3 Part 1 (LLM Scoring) - Independent fraud risk assessment
+                # 🔹 Step 5: Layer 3 UNIFIED LLM (FIRST LLM CALL)
+                print("[*] Running Layer 3 (UNIFIED): LLM Reasoning + Scoring...")
                 try:
                     layer3_scoring = run_llm_scorer(
                         text=layer0_output.get("clean_text", ""),
@@ -489,14 +411,15 @@ async def analyze_file(file: UploadFile = File(...)):
                 except Exception as e:
                     print(f"[!] Layer 3 scoring error: {e}")
                     layer3_scoring = {
-                        "llm_score": 50.0,
-                        "llm_confidence": 0,
-                        "error": str(e)
+                        "summary_1": f"Error analyzing heuristics: {str(e)}",
+                        "summary_2": f"Error analyzing ML: {str(e)}",
+                        "score_3": 50.0,
+                        "confidence_3": 0
                     }
 
                 # Add LLM score to layer2 for Risk Engine fusion
-                layer2_output["llm_score"] = layer3_scoring.get("llm_score", 0)
-                layer2_output["llm_confidence"] = layer3_scoring.get("llm_confidence", 0)
+                layer2_output["llm_score"] = layer3_scoring.get("score_3", 0)
+                layer2_output["llm_confidence"] = layer3_scoring.get("confidence_3", 0)
 
                 # Prepare meta info for context-aware scoring
                 meta = {
@@ -520,7 +443,7 @@ async def analyze_file(file: UploadFile = File(...)):
                         "reasoning": f"Error in risk calculation: {str(e)}"
                     }
 
-                # 🔹 Step 7: Layer 3 Part 2 (LLM Explanation) - Explain final decision
+                # 🔹 Step 7: Layer 3 Part 2 (SECOND LLM CALL - Final Explanation)
                 try:
                     layer3_explanation = run_llm_explanation(
                         text=layer0_output.get("clean_text", ""),
@@ -544,9 +467,7 @@ async def analyze_file(file: UploadFile = File(...)):
                     "input": input_data,
                     "layer0": layer0_output,
                     "layer1": layer1_output,
-                    "layer1_reasoning": layer1_reasoning,
                     "layer2": layer2_output,
-                    "layer2_reasoning": layer2_reasoning,
                     "layer3_scoring": layer3_scoring,
                     "final": final_output,
                     "layer3_explanation": layer3_explanation
