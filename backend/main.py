@@ -5,7 +5,7 @@ import os
 from pathlib import Path
 import subprocess
 from concurrent.futures import ThreadPoolExecutor
-import threading
+# import threading
 import json
 
 # Input Layer
@@ -15,14 +15,16 @@ from input_layer.input_handler import process_text_input, process_file_input
 from layer0_privacy.normalization import process_privacy_layer
 
 # Layer 1
-from layer1_heuristics.heuristic_engine import run_heuristics
+# from layer1_heuristics.heuristic_engine import run_heuristics
 
 # Layer 2
-from layer2_ml.ml_engine import run_ml_model
+# from layer2_ml.ml_engine import run_ml_model
 
-# Layer 3 (LLM) - Unified JSON Pipeline
+# Layer 3 (LLM) - Strict JSON Pipeline
 from layer3_llm.pipeline_orchestrator import (
-    build_structured_pipeline,
+    initialize_pipeline_json,
+    run_layer1_heuristics,
+    run_layer2_ml,
     run_layer3_reasoning,
     calculate_final_score,
     run_final_summary,
@@ -30,18 +32,20 @@ from layer3_llm.pipeline_orchestrator import (
 )
 
 # Risk Engine
-from risk_engine.decision_engine import make_decision
-
+# from risk_engine.decision_engine import make_decision
 
 app = FastAPI(
     title="Fraud Detection System",
     version="3.0"
 )
 
+# Get CORS origins from environment
+cors_origins = os.getenv("CORS_ORIGINS", "http://localhost:5173,http://localhost:3000").split(",")
+
 # Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allow all origins
+    allow_origins=[origin.strip() for origin in cors_origins],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -69,11 +73,23 @@ def preload_models():
     models_preloaded = True
 
 
-# Pre-load models on first request
+# Pre-load models on startup
 @app.on_event("startup")
 async def startup_event():
-    """Pre-cache models on app startup"""
+    """Initialize on app startup"""
+    print("[*] Starting Fraud Detection System...")
+
+    # Pre-cache models
+    print("[*] Pre-loading models in background...")
     preload_models()
+    print("[✓] Startup complete")
+
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    """Cleanup on app shutdown"""
+    print("[*] Shutting down...")
+    print("[✓] Shutdown complete")
 
 
 # -----------------------------
@@ -153,166 +169,109 @@ def debug_response():
 
 @app.post("/analyze")
 def analyze(text: str):
-    """OPTIMIZED: Parallelized layer processing with error handling"""
+    """STRICT JSON PIPELINE: Single JSON flows through all layers"""
 
     try:
         # 🔹 Step 1: Input Layer
         input_data = process_text_input(text)
         context_type = input_data.get("type", "email")
-
-        # Store url_analysis for response, but remove from metadata to avoid duplication in layers
         url_analysis_input = input_data.get("metadata", {}).pop("url_analysis", {})
 
-        # 🔹 Step 2: Layer 0 (Privacy + Features) - FAST, run first
+        # 🔹 Step 2: Layer 0 (Privacy + Features)
         layer0_output = process_privacy_layer(input_data)
 
-        # 🔹 Step 3: PARALLELIZE Layer 1 and Layer 2 processing
-        print("[*] Running Layer 1 & 2 in PARALLEL...")
-        layer1_output = None
-        layer2_output = None
-        heuristic_score = 0
+        # 🔹 Step 3: Initialize Pipeline JSON
+        print("[*] Step 3: Initializing pipeline JSON...")
+        pipeline_json = initialize_pipeline_json(
+            input_content=layer0_output.get("clean_text", "")
+        )
 
-        # Run Layer 1 and Layer 2 in parallel threads
-        def run_layer1():
-            nonlocal layer1_output, heuristic_score
-            try:
-                layer1_output = run_heuristics(layer0_output)
-                heuristic_score = layer1_output.get("heuristic_score", 0)
-            except Exception as e:
-                print(f"[!] Layer 1 error: {e}")
-                layer1_output = {
-                    "heuristic_score": 0,
-                    "flags": [],
-                    "confidence": 0,
-                    "error": str(e)
-                }
+        # 🔹 Step 4: Layer 1 (Heuristics) - JSON IN -> Updated JSON OUT
+        print("[*] Step 4: Layer 1 (Heuristics)...")
+        try:
+            pipeline_json = run_layer1_heuristics(pipeline_json, layer0_output)
+            layer1_output = {
+                "heuristic_score": pipeline_json["layer_1"]["score"],
+                "confidence": pipeline_json["layer_1"]["confidence"],
+                "flags": pipeline_json["layer_1"]["keywords"]
+            }
+        except Exception as e:
+            print(f"[!] Layer 1 error: {e}")
+            layer1_output = {
+                "heuristic_score": 0,
+                "confidence": 0,
+                "flags": [],
+                "error": str(e)
+            }
+            pipeline_json["layer_1"]["score"] = 0
+            pipeline_json["layer_1"]["confidence"] = 0
 
-        def run_layer2():
-            nonlocal layer2_output
-            try:
-                # Smart routing based on heuristic score (wait for layer1 if needed)
-                import time
-                timeout = 0
-                while layer1_output is None and timeout < 100:  # Wait max 10s for layer1
-                    time.sleep(0.1)
-                    timeout += 1
+        # 🔹 Step 5: Layer 2 (ML) - JSON IN -> Updated JSON OUT
+        print("[*] Step 5: Layer 2 (ML)...")
+        try:
+            pipeline_json = run_layer2_ml(pipeline_json, layer0_output)
+            layer2_output = {
+                "ml_text_score": pipeline_json["layer_2"]["score"],
+                "ml_text_confidence": pipeline_json["layer_2"]["confidence"],
+                "ml_prediction": pipeline_json["layer_2"]["keywords"]
+            }
+        except Exception as e:
+            print(f"[!] Layer 2 error: {e}")
+            layer2_output = {
+                "ml_text_score": 0,
+                "ml_text_confidence": 0,
+                "ml_prediction": "error",
+                "error": str(e)
+            }
+            pipeline_json["layer_2"]["score"] = 0
+            pipeline_json["layer_2"]["confidence"] = 0
 
-                hs = layer1_output.get("heuristic_score", 0) if layer1_output else 0
-                if hs >= 120:
-                    layer2_output = {
-                        "ml_text_score": 95.0,
-                        "ml_text_confidence": 1.0,
-                        "note": "Skipped ML (high risk from heuristics)"
-                    }
-                elif hs <= 20:
-                    layer2_output = {
-                        "ml_text_score": 5.0,
-                        "ml_text_confidence": 1.0,
-                        "note": "Skipped ML (low risk from heuristics)"
-                    }
-                else:
-                    layer2_output = run_ml_model(layer0_output)
-            except Exception as e:
-                print(f"[!] Layer 2 error: {e}")
-                layer2_output = {
-                    "ml_text_score": 0,
-                    "ml_text_confidence": 0,
-                    "error": str(e)
-                }
-
-        # Start both in parallel
-        t1 = threading.Thread(target=run_layer1, daemon=True)
-        t2 = threading.Thread(target=run_layer2, daemon=True)
-        t1.start()
-        t2.start()
-        t1.join(timeout=30)  # Wait max 30s
-        t2.join(timeout=30)
-
-        # Add URL scoring to layer2 output if available
+        # Add URL scoring if available
         if url_analysis_input and url_analysis_input.get("has_urls"):
             layer2_output["url_ml_score"] = url_analysis_input.get("url_ml_score", 0)
             layer2_output["url_ml_confidence"] = url_analysis_input.get("url_ml_confidence", 0)
 
-        # 🔹 Step 3: Build Structured JSON Pipeline
-        print("[*] Step 3: Building structured JSON pipeline...")
-        pipeline_json = build_structured_pipeline(
-            input_content=layer0_output.get("clean_text", ""),
-            layer1_output=layer1_output,
-            layer2_output=layer2_output
-        )
-
-        # 🔹 Step 4: Layer 3 FIRST LLM CALL (Reasoning)
-        print("[*] Step 4 (FIRST LLM CALL): Running Layer 3 analysis...")
+        # 🔹 Step 6: Layer 3 FIRST LLM CALL (Reasoning) - JSON IN -> Updated JSON OUT
+        print("[*] Step 6: Layer 3 LLM Call 1 (Reasoning)...")
         try:
             pipeline_json = run_layer3_reasoning(pipeline_json)
         except Exception as e:
             print(f"[!] Layer 3 reasoning error: {e}")
-            pipeline_json["layer_3"] = {
-                "score": 50.0,
-                "confidence": 0.3,
-                "reasoning": f"Error: {str(e)}"
-            }
+            pipeline_json["layer_3"]["score"] = 50.0
+            pipeline_json["layer_3"]["confidence"] = 0.3
+            pipeline_json["layer_3"]["reasoning"] = f"Error: {str(e)}"
 
-        # 🔹 Step 5: Scoring Engine (NO LLM - Aggregate)
-        print("[*] Step 5: Calculating final score...")
+        # 🔹 Step 7: Risk Scoring (Aggregate) - JSON IN -> Updated JSON OUT
+        print("[*] Step 7: Risk Scoring...")
         try:
             pipeline_json = calculate_final_score(pipeline_json)
         except Exception as e:
             print(f"[!] Scoring error: {e}")
             pipeline_json["final_score"] = 50.0
 
-        # Add LLM score to layer2 for Risk Engine
-        layer2_output["llm_score"] = pipeline_json.get("layer_3", {}).get("score", 0)
-        layer2_output["llm_confidence"] = pipeline_json.get("layer_3", {}).get("confidence", 0)
-
-        # Calculate Risk Engine Final Score
-        print("[*] Running Risk Engine to calculate final risk score...")
-        meta = {
-            "has_url": url_analysis_input.get("has_urls", False),
-            "ocr_used": input_data.get("type") in ["audio_transcribed", "file_pdf"],
-            "ocr_quality": layer0_output.get("ocr_quality", 0.8)
-        }
-
-        try:
-            final_output = make_decision(layer1_output, layer2_output, context_type, meta)
-        except Exception as e:
-            print(f"[!] Risk Engine error: {e}")
-            final_output = {
-                "risk_score": pipeline_json.get("final_score", 50.0),
-                "risk_level": "MEDIUM",
-                "risk_color": "orange",
-                "decision": "REVIEW",
-                "confidence": 0.5,
-                "context_type": context_type,
-                "reasoning": f"Error in risk calculation: {str(e)}"
-            }
-
-        # 🔹 Step 6: Layer 3 SECOND LLM CALL (Final Explanation)
-        print("[*] Step 6 (SECOND LLM CALL): Generating final explanation...")
+        # 🔹 Step 8: Layer 3 SECOND LLM CALL (Summary) - JSON IN -> Updated JSON OUT
+        print("[*] Step 8: Layer 3 LLM Call 2 (Summary)...")
         try:
             pipeline_json = run_final_summary(pipeline_json)
         except Exception as e:
             print(f"[!] Final explanation error: {e}")
-            pipeline_json["final_summary"] = f"Analysis complete. Final risk score: {final_output.get('risk_score', 0)}/100"
+            pipeline_json["final_summary"] = f"Analysis complete. Final risk score: {pipeline_json.get('final_score', 0)}/100"
 
-        # 🔹 Update final_output reasoning with LLM explanation
-        final_output["reasoning"] = pipeline_json.get("final_summary", final_output.get("reasoning", ""))
-
-        # 🔹 Convert Pipeline to Response Format
-        print("[*] Converting to response format...")
+        # 🔹 Step 9: Convert Final JSON to Response Format
+        print("[*] Step 9: Converting to response format...")
         response = convert_pipeline_to_response(
             pipeline_json=pipeline_json,
             layer0_output=layer0_output,
             layer1_output=layer1_output,
             layer2_output=layer2_output,
             input_data=input_data,
-            context_type=context_type,
-            final_output=final_output
+            context_type=context_type
         )
 
-        # Restore url_analysis to input_data for response
+        # Restore URL analysis
         input_data["metadata"]["url_analysis"] = url_analysis_input
 
+        print("[✓] Analysis complete - JSON pipeline finished")
         return response
 
     except Exception as e:
@@ -362,46 +321,53 @@ async def analyze_file(file: UploadFile = File(...)):
                 # 🔹 Step 2: Layer 0 (Privacy + Features)
                 layer0_output = process_privacy_layer(input_data)
 
-                # 🔹 Step 3: Layer 1 (Heuristic Detection)
+                # 🔹 Step 3: Initialize Pipeline JSON
+                print("[*] Step 3: Initializing pipeline JSON...")
+                pipeline_json = initialize_pipeline_json(
+                    input_content=layer0_output.get("clean_text", "")
+                )
+
+                # 🔹 Step 4: Layer 1 (Heuristics) - JSON IN -> Updated JSON OUT
+                print("[*] Step 4: Layer 1 (Heuristics)...")
                 try:
-                    layer1_output = run_heuristics(layer0_output)
+                    pipeline_json = run_layer1_heuristics(pipeline_json, layer0_output)
+                    layer1_output = {
+                        "heuristic_score": pipeline_json["layer_1"]["score"],
+                        "confidence": pipeline_json["layer_1"]["confidence"],
+                        "flags": pipeline_json["layer_1"]["keywords"]
+                    }
                 except Exception as e:
                     print(f"[!] Layer 1 error: {e}")
                     layer1_output = {
                         "heuristic_score": 0,
-                        "flags": [],
                         "confidence": 0,
+                        "flags": [],
                         "error": str(e)
                     }
-                heuristic_score = layer1_output.get("heuristic_score", 0)
+                    pipeline_json["layer_1"]["score"] = 0
+                    pipeline_json["layer_1"]["confidence"] = 0
 
-                # 🥥 Step 4: Smart Routing for ML
-                if heuristic_score >= 120:
+                # 🔹 Step 5: Layer 2 (ML) - JSON IN -> Updated JSON OUT
+                print("[*] Step 5: Layer 2 (ML)...")
+                try:
+                    pipeline_json = run_layer2_ml(pipeline_json, layer0_output)
                     layer2_output = {
-                        "ml_text_score": 95.0,
-                        "ml_text_confidence": 1.0,
-                        "note": "Skipped ML (high risk from heuristics)"
+                        "ml_text_score": pipeline_json["layer_2"]["score"],
+                        "ml_text_confidence": pipeline_json["layer_2"]["confidence"],
+                        "ml_prediction": pipeline_json["layer_2"]["keywords"]
                     }
-
-                elif heuristic_score <= 20:
+                except Exception as e:
+                    print(f"[!] Layer 2 error: {e}")
                     layer2_output = {
-                        "ml_text_score": 5.0,
-                        "ml_text_confidence": 1.0,
-                        "note": "Skipped ML (low risk from heuristics)"
+                        "ml_text_score": 0,
+                        "ml_text_confidence": 0,
+                        "ml_prediction": "error",
+                        "error": str(e)
                     }
+                    pipeline_json["layer_2"]["score"] = 0
+                    pipeline_json["layer_2"]["confidence"] = 0
 
-                else:
-                    try:
-                        layer2_output = run_ml_model(layer0_output)
-                    except Exception as e:
-                        print(f"[!] Layer 2 error: {e}")
-                        layer2_output = {
-                            "ml_text_score": 0,
-                            "ml_text_confidence": 0,
-                            "error": str(e)
-                        }
-
-                # Add URL scoring to layer2 output
+                # Add URL scoring if available
                 if url_analysis_input and url_analysis_input.get("has_urls"):
                     layer2_output["url_ml_score"] = url_analysis_input.get("url_ml_score", 0)
                     layer2_output["url_ml_confidence"] = url_analysis_input.get("url_ml_confidence", 0)
@@ -411,44 +377,34 @@ async def analyze_file(file: UploadFile = File(...)):
                     layer2_output["deepfake_score"] = deepfake_analysis_input.get("deepfake_score", 0) * 100
                     layer2_output["deepfake_confidence"] = deepfake_analysis_input.get("metadata", {}).get("deepfake_confidence", 0)
 
-                # 🔹 Step 3: Build Structured JSON Pipeline
-                print("[*] Step 3: Building structured JSON pipeline...")
-                pipeline_json = build_structured_pipeline(
-                    input_content=layer0_output.get("clean_text", ""),
-                    layer1_output=layer1_output,
-                    layer2_output=layer2_output
-                )
-
-                # 🔹 Step 4: Layer 3 FIRST LLM CALL (Reasoning)
-                print("[*] Step 4 (FIRST LLM CALL): Running Layer 3 analysis...")
+                # 🔹 Step 6: Layer 3 FIRST LLM CALL (Reasoning) - JSON IN -> Updated JSON OUT
+                print("[*] Step 6: Layer 3 LLM Call 1 (Reasoning)...")
                 try:
                     pipeline_json = run_layer3_reasoning(pipeline_json)
                 except Exception as e:
                     print(f"[!] Layer 3 reasoning error: {e}")
-                    pipeline_json["layer_3"] = {
-                        "score": 50.0,
-                        "confidence": 0.3,
-                        "reasoning": f"Error: {str(e)}"
-                    }
+                    pipeline_json["layer_3"]["score"] = 50.0
+                    pipeline_json["layer_3"]["confidence"] = 0.3
+                    pipeline_json["layer_3"]["reasoning"] = f"Error: {str(e)}"
 
-                # 🔹 Step 5: Scoring Engine (NO LLM - Aggregate)
-                print("[*] Step 5: Calculating final score...")
+                # 🔹 Step 7: Risk Scoring (Aggregate) - JSON IN -> Updated JSON OUT
+                print("[*] Step 7: Risk Scoring...")
                 try:
                     pipeline_json = calculate_final_score(pipeline_json)
                 except Exception as e:
                     print(f"[!] Scoring error: {e}")
                     pipeline_json["final_score"] = 50.0
 
-                # 🔹 Step 6: Layer 3 SECOND LLM CALL (Final Explanation)
-                print("[*] Step 6 (SECOND LLM CALL): Generating final explanation...")
+                # 🔹 Step 8: Layer 3 SECOND LLM CALL (Summary) - JSON IN -> Updated JSON OUT
+                print("[*] Step 8: Layer 3 LLM Call 2 (Summary)...")
                 try:
                     pipeline_json = run_final_summary(pipeline_json)
                 except Exception as e:
                     print(f"[!] Final explanation error: {e}")
                     pipeline_json["final_summary"] = f"Analysis complete. Final risk score: {pipeline_json.get('final_score', 0)}/100"
 
-                # 🔹 Convert Pipeline to Response Format
-                print("[*] Converting to response format...")
+                # 🔹 Step 9: Convert Final JSON to Response Format
+                print("[*] Step 9: Converting to response format...")
                 response = convert_pipeline_to_response(
                     pipeline_json=pipeline_json,
                     layer0_output=layer0_output,

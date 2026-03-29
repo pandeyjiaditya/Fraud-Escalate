@@ -21,3 +21,6 @@ ffmpeg-python
 easyocr
 pillow
 requests
+pymongo
+passlib[bcrypt]
+python-jose[cryptography]

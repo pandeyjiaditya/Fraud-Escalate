@@ -17,6 +17,7 @@ export default function Header() {
             <Shield className="w-8 h-8 text-green-500" />
             <span className="font-bold text-lg text-white">NULLPOINT</span>
           </button>
+
           {location.pathname !== "/" && (
             <div className="flex gap-6 ml-8">
               <button
@@ -47,7 +48,7 @@ export default function Header() {
                     : "text-gray-400 hover:text-white"
                 }`}
               >
-                Results History
+                History
               </button>
             </div>
           )}

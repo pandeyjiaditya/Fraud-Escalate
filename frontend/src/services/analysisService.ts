@@ -65,6 +65,21 @@ export async function analyzeFile(file: File): Promise<AnalysisResponse> {
   return response.json();
 }
 
+export async function analyzeText(text: string): Promise<AnalysisResponse> {
+  const response = await fetch(
+    `${API_URL}/analyze?text=${encodeURIComponent(text)}`,
+    {
+      method: "POST",
+    },
+  );
+
+  if (!response.ok) {
+    throw new Error(`API error: ${response.status}`);
+  }
+
+  return response.json();
+}
+
 export function detectFileType(filename: string): string {
   const ext = filename.toLowerCase().split(".").pop() || "";
 
@@ -107,7 +122,7 @@ export function getFileTypeDescription(type: string): string {
 const colorMap: Record<string, string> = {
   red: "text-red-500",
   orange: "text-orange-500",
-  green: "text-green-500"
+  green: "text-green-500",
 };
 
 export function getRiskColor(colorCode: string): string {

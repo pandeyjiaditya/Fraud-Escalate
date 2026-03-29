@@ -1,0 +1,426 @@
+%PDF-1.3
+%ºß¬à
+3 0 obj
+<</Type /Page
+/Parent 1 0 R
+/Resources 2 0 R
+/MediaBox [0 0 595.2799999999999727 841.8899999999999864]
+/Contents 4 0 R
+>>
+endobj
+4 0 obj
+<<
+/Length 3122
+>>
+stream
+0.5670000000000001 w
+0 G
+BT
+/F2 20 Tf
+23. TL
+0 g
+42.5196850393700814 799.3703149606299121 Td
+(FRAUD DETECTION ANALYSIS REPORT) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0 g
+42.5196850393700814 765.3545669291338527 Td
+(Generated: 3/29/2026, 10:07:05 AM) Tj
+ET
+0.2 0.8 0.2 RG
+42.5196850393700814 742.6774015748030706 m
+552.7603149606298985 742.6774015748030706 l
+S
+BT
+/F2 13 Tf
+14.9499999999999993 TL
+0 g
+42.5196850393700814 720.0002362204724022 Td
+(RISK ASSESSMENT SUMMARY) Tj
+ET
+BT
+/F2 11 Tf
+12.6499999999999986 TL
+1. 0.647 0. rg
+42.5196850393700814 697.3230708661417339 Td
+(Risk Score: 49.8/100) Tj
+ET
+BT
+/F1 11 Tf
+12.6499999999999986 TL
+0. g
+42.5196850393700814 677.480551181102328 Td
+(Risk Level: MEDIUM) Tj
+ET
+BT
+/F1 11 Tf
+12.6499999999999986 TL
+0. g
+42.5196850393700814 657.6380314960629221 Td
+(Decision: REVIEW) Tj
+ET
+BT
+/F1 11 Tf
+12.6499999999999986 TL
+0. g
+42.5196850393700814 637.7955118110235162 Td
+(Confidence: 68.0%) Tj
+ET
+BT
+/F2 12 Tf
+13.7999999999999989 TL
+0. g
+42.5196850393700814 609.4490551181102092 Td
+(LAYER SCORES) Tj
+ET
+BT
+/F2 10 Tf
+11.5 TL
+0. g
+42.5196850393700814 586.7718897637794271 Td
+(Layer 1 - Heuristics) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0. g
+56.6929133858267775 569.7640157480313974 Td
+(Score: 33/100) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0. g
+56.6929133858267775 552.7561417322833677 Td
+(Confidence: 75.0%) Tj
+ET
+BT
+/F2 10 Tf
+11.5 TL
+0. g
+42.5196850393700814 530.0789763779526993 Td
+(Layer 2 - Machine Learning) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0. g
+56.6929133858267775 513.0711023622046696 Td
+(Score: 66.4/100) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0. g
+56.6929133858267775 496.0632283464566399 Td
+(Prediction: fraud) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0. g
+56.6929133858267775 479.0553543307086102 Td
+(Confidence: 71.6%) Tj
+ET
+BT
+/F2 10 Tf
+11.5 TL
+0. g
+42.5196850393700814 456.378188976377885 Td
+(Layer 3 - LLM Analysis) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0. g
+56.6929133858267775 439.3703149606298552 Td
+(Score: 50.0/100) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0. g
+56.6929133858267775 422.3624409448818255 Td
+(Confidence: 55.0%) Tj
+ET
+BT
+/F2 12 Tf
+13.7999999999999989 TL
+0. g
+42.5196850393700814 399.6852755905511003 Td
+(ANALYSIS REASONING) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0. g
+42.5196850393700814 377.0081102362204319 Td
+(LLM response timed out) Tj
+ET
+BT
+/F2 12 Tf
+13.7999999999999989 TL
+0. g
+42.5196850393700814 345.8270078740156919 Td
+(FINAL SUMMARY) Tj
+ET
+BT
+/F2 12 Tf
+13.7999999999999989 TL
+0. g
+42.5196850393700814 323.1498425196849666 Td
+(INPUT INFORMATION) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0. g
+42.5196850393700814 300.4726771653542983 Td
+(Type: image_ocr) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0. g
+42.5196850393700814 283.4648031496062686 Td
+(Context: image_ocr) Tj
+ET
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0. g
+42.5196850393700814 266.4569291338582389 Td
+(Content Preview: Weekly Paid Job) Tj
+T* (Aisha S) Tj
+T* (Mansour < Aisha Mansour@botgo.tz>) Tj
+T* (AS) Tj
+T* (To) Tj
+T* (am) Tj
+T* (sharing job opportunity information to individuals who might be) Tj
+T* (interested in a paid UNICEF Part-Time job with a weekly paid job of S...) Tj
+ET
+BT
+/F1 8 Tf
+9.1999999999999993 TL
+0.502 g
+42.5196850393700814 28.3464566929134207 Td
+(Report generated at 2026-03-29T04:37:05.244Z) Tj
+ET
+endstream
+endobj
+1 0 obj
+<</Type /Pages
+/Kids [3 0 R ]
+/Count 1
+>>
+endobj
+5 0 obj
+<<
+/Type /Font
+/BaseFont /Helvetica
+/Subtype /Type1
+/Encoding /WinAnsiEncoding
+/FirstChar 32
+/LastChar 255
+>>
+endobj
+6 0 obj
+<<
+/Type /Font
+/BaseFont /Helvetica-Bold
+/Subtype /Type1
+/Encoding /WinAnsiEncoding
+/FirstChar 32
+/LastChar 255
+>>
+endobj
+7 0 obj
+<<
+/Type /Font
+/BaseFont /Helvetica-Oblique
+/Subtype /Type1
+/Encoding /WinAnsiEncoding
+/FirstChar 32
+/LastChar 255
+>>
+endobj
+8 0 obj
+<<
+/Type /Font
+/BaseFont /Helvetica-BoldOblique
+/Subtype /Type1
+/Encoding /WinAnsiEncoding
+/FirstChar 32
+/LastChar 255
+>>
+endobj
+9 0 obj
+<<
+/Type /Font
+/BaseFont /Courier
+/Subtype /Type1
+/Encoding /WinAnsiEncoding
+/FirstChar 32
+/LastChar 255
+>>
+endobj
+10 0 obj
+<<
+/Type /Font
+/BaseFont /Courier-Bold
+/Subtype /Type1
+/Encoding /WinAnsiEncoding
+/FirstChar 32
+/LastChar 255
+>>
+endobj
+11 0 obj
+<<
+/Type /Font
+/BaseFont /Courier-Oblique
+/Subtype /Type1
+/Encoding /WinAnsiEncoding
+/FirstChar 32
+/LastChar 255
+>>
+endobj
+12 0 obj
+<<
+/Type /Font
+/BaseFont /Courier-BoldOblique
+/Subtype /Type1
+/Encoding /WinAnsiEncoding
+/FirstChar 32
+/LastChar 255
+>>
+endobj
+13 0 obj
+<<
+/Type /Font
+/BaseFont /Times-Roman
+/Subtype /Type1
+/Encoding /WinAnsiEncoding
+/FirstChar 32
+/LastChar 255
+>>
+endobj
+14 0 obj
+<<
+/Type /Font
+/BaseFont /Times-Bold
+/Subtype /Type1
+/Encoding /WinAnsiEncoding
+/FirstChar 32
+/LastChar 255
+>>
+endobj
+15 0 obj
+<<
+/Type /Font
+/BaseFont /Times-Italic
+/Subtype /Type1
+/Encoding /WinAnsiEncoding
+/FirstChar 32
+/LastChar 255
+>>
+endobj
+16 0 obj
+<<
+/Type /Font
+/BaseFont /Times-BoldItalic
+/Subtype /Type1
+/Encoding /WinAnsiEncoding
+/FirstChar 32
+/LastChar 255
+>>
+endobj
+17 0 obj
+<<
+/Type /Font
+/BaseFont /ZapfDingbats
+/Subtype /Type1
+/FirstChar 32
+/LastChar 255
+>>
+endobj
+18 0 obj
+<<
+/Type /Font
+/BaseFont /Symbol
+/Subtype /Type1
+/FirstChar 32
+/LastChar 255
+>>
+endobj
+2 0 obj
+<<
+/ProcSet [/PDF /Text /ImageB /ImageC /ImageI]
+/Font <<
+/F1 5 0 R
+/F2 6 0 R
+/F3 7 0 R
+/F4 8 0 R
+/F5 9 0 R
+/F6 10 0 R
+/F7 11 0 R
+/F8 12 0 R
+/F9 13 0 R
+/F10 14 0 R
+/F11 15 0 R
+/F12 16 0 R
+/F13 17 0 R
+/F14 18 0 R
+>>
+/XObject <<
+>>
+>>
+endobj
+19 0 obj
+<<
+/Producer (jsPDF 4.2.1)
+/CreationDate (D:20260329100705+05'30')
+>>
+endobj
+20 0 obj
+<<
+/Type /Catalog
+/Pages 1 0 R
+/OpenAction [3 0 R /FitH null]
+/PageLayout /OneColumn
+>>
+endobj
+xref
+0 21
+0000000000 65535 f 
+0000003326 00000 n 
+0000005143 00000 n 
+0000000015 00000 n 
+0000000152 00000 n 
+0000003383 00000 n 
+0000003508 00000 n 
+0000003638 00000 n 
+0000003771 00000 n 
+0000003908 00000 n 
+0000004031 00000 n 
+0000004160 00000 n 
+0000004292 00000 n 
+0000004428 00000 n 
+0000004556 00000 n 
+0000004683 00000 n 
+0000004812 00000 n 
+0000004945 00000 n 
+0000005047 00000 n 
+0000005391 00000 n 
+0000005477 00000 n 
+trailer
+<<
+/Size 21
+/Root 20 0 R
+/Info 19 0 R
+/ID [ <036D20EEF42B1EE6EACC50BDA6F39901> <036D20EEF42B1EE6EACC50BDA6F39901> ]
+>>
+startxref
+5581
+%%EOF

@@ -1,17 +1,26 @@
 import React, { useState, useEffect } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
-import { Clock, ChevronRight, Trash2 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { Clock, ChevronRight, Trash2, AlertCircle, Download } from "lucide-react";
 import { motion } from "framer-motion";
-import { AnalysisResponse, getRiskColor } from "../services/analysisService";
+import {
+  AnalysisResponse,
+  getRiskColor,
+} from "../services/analysisService";
+import { generatePDFReport, downloadAnalysisJSON } from "../utils/pdfGenerator";
 import Header from "../components/Header";
 
 const STORAGE_KEY = "fraud_analysis_results";
 
+interface StoredResult {
+  id: string;
+  data: AnalysisResponse;
+  timestamp: number;
+}
+
 export default function ResultsHistory() {
   const navigate = useNavigate();
-  const [results, setResults] = useState<
-    { timestamp: string; data: AnalysisResponse }[]
-  >([]);
+  const [results, setResults] = useState<StoredResult[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     loadResults();
@@ -19,32 +28,42 @@ export default function ResultsHistory() {
 
   const loadResults = () => {
     try {
-      const storedResults = localStorage.getItem(STORAGE_KEY);
-      if (storedResults) {
-        const allResults = JSON.parse(storedResults);
-        const resultsList = Object.entries(allResults)
-          .map(([key, value]: [string, any]) => ({
-            timestamp: key.replace("result_", ""),
-            data: value,
+      setLoading(true);
+      const storedData = localStorage.getItem(STORAGE_KEY);
+      if (storedData) {
+        const parsed = JSON.parse(storedData) as Record<string, AnalysisResponse>;
+        const resultsArray = Object.entries(parsed)
+          .filter(([key]) => key !== "text_input")
+          .map(([key, data], index) => ({
+            id: key,
+            data,
+            timestamp: data.final?.created_at ? new Date(data.final.created_at).getTime() : Date.now() - (index * 60000),
           }))
-          .reverse();
-        setResults(resultsList);
+          .sort((a, b) => b.timestamp - a.timestamp);
+
+        setResults(resultsArray);
       }
     } catch (error) {
       console.error("Error loading results:", error);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const deleteResult = (timestamp: string) => {
+  const deleteResult = (resultId: string) => {
+    if (!window.confirm("Are you sure you want to delete this result?")) return;
+
     try {
-      const storedResults = JSON.parse(
-        localStorage.getItem(STORAGE_KEY) || "{}",
-      );
-      delete storedResults[`result_${timestamp}`];
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(storedResults));
-      loadResults();
+      const storedData = localStorage.getItem(STORAGE_KEY);
+      if (storedData) {
+        const parsed = JSON.parse(storedData) as Record<string, AnalysisResponse>;
+        delete parsed[resultId];
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(parsed));
+        setResults(results.filter((r) => r.id !== resultId));
+      }
     } catch (error) {
       console.error("Error deleting result:", error);
+      alert("Failed to delete result");
     }
   };
 
@@ -68,11 +87,20 @@ export default function ResultsHistory() {
             <h1 className="text-3xl font-bold">Results History</h1>
           </div>
           <p className="text-gray-400">
-            View all previous fraud analysis results
+            View all previous fraud analysis results from local storage
           </p>
         </motion.div>
 
-        {results.length === 0 ? (
+        {loading ? (
+          <motion.div
+            className="text-center py-12"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+          >
+            <div className="w-8 h-8 border-2 border-green-500/30 border-t-green-500 rounded-full animate-spin mx-auto mb-4" />
+            <p className="text-gray-400">Loading your analysis history...</p>
+          </motion.div>
+        ) : results.length === 0 ? (
           <motion.div
             className="text-center py-12"
             initial={{ opacity: 0 }}
@@ -100,8 +128,8 @@ export default function ResultsHistory() {
               const score = result.data.final.risk_score;
               const riskColor = getRiskColor(result.data.final.risk_color);
               const decision = result.data.final.decision;
-              const timestamp = new Date(result.timestamp);
-              const formattedDate = timestamp.toLocaleDateString("en-US", {
+              const createdAt = new Date(result.timestamp);
+              const formattedDate = createdAt.toLocaleDateString("en-US", {
                 year: "numeric",
                 month: "short",
                 day: "numeric",
@@ -111,7 +139,7 @@ export default function ResultsHistory() {
 
               return (
                 <motion.div
-                  key={result.timestamp}
+                  key={result.id}
                   className="bg-black/40 border border-green-500/20 hover:border-green-500/40 rounded-lg p-6 cursor-pointer transition"
                   onClick={() => viewResult(result.data)}
                   initial={{ opacity: 0, x: -20 }}
@@ -174,14 +202,35 @@ export default function ResultsHistory() {
                       <p className="text-gray-400 text-sm">{formattedDate}</p>
                     </div>
 
-                    <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-2">
                       <ChevronRight className="w-5 h-5 text-gray-500" />
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          deleteResult(result.timestamp);
+                          generatePDFReport(result.data, `result-${result.id}-report.pdf`);
+                        }}
+                        className="p-2 hover:bg-blue-500/10 rounded transition text-blue-500/60 hover:text-blue-500"
+                        title="Download PDF Report"
+                      >
+                        <Download className="w-5 h-5" />
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          downloadAnalysisJSON(result.data, `result-${result.id}-data.json`);
+                        }}
+                        className="p-2 hover:bg-purple-500/10 rounded transition text-purple-500/60 hover:text-purple-500"
+                        title="Download JSON Data"
+                      >
+                        <Download className="w-5 h-5" />
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          deleteResult(result.id);
                         }}
                         className="p-2 hover:bg-red-500/10 rounded transition text-red-500/60 hover:text-red-500"
+                        title="Delete Result"
                       >
                         <Trash2 className="w-5 h-5" />
                       </button>

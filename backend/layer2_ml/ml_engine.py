@@ -74,8 +74,24 @@ def run_ml_model(data):
 
         prob = min(prob, 1.0)
 
-        # 🔥 Confidence score
-        confidence = abs(prob - 0.5) * 2
+        # ✅ IMPROVED CONFIDENCE: Based on prediction strength
+        # Higher confidence for more extreme predictions (very sure fraud or very sure safe)
+        # Boost confidence for clear signals
+        if prob >= 0.8:
+            confidence = min(0.95, 0.8 + (prob - 0.5) * 0.3)  # Very strong fraud = 0.90-0.95
+        elif prob >= 0.7:
+            confidence = min(0.90, 0.75 + (prob - 0.5) * 0.3)  # Strong fraud = 0.85-0.90
+        elif prob >= 0.6:
+            confidence = min(0.85, 0.65 + (prob - 0.5) * 0.4)  # Moderate fraud = 0.75-0.85
+        elif prob <= 0.2:
+            confidence = min(0.95, 0.8 + (0.5 - prob) * 0.6)  # Very strong safe = 0.90-0.95
+        elif prob <= 0.3:
+            confidence = min(0.90, 0.70 + (0.5 - prob) * 0.4)  # Strong safe = 0.80-0.90
+        elif prob <= 0.4:
+            confidence = min(0.85, 0.60 + (0.5 - prob) * 0.5)  # Moderate safe = 0.70-0.85
+        else:
+            # Near 0.5 = uncertain, but still reasonable confidence for ML model
+            confidence = max(0.50, 0.55 - abs(prob - 0.5) * 2)  # Near 0.5 = 0.50-0.55
 
         prediction = "fraud" if prob > 0.5 else "safe"
 
@@ -95,7 +111,7 @@ def run_ml_model(data):
     except Exception as e:
         return {
             "ml_text_score": 0,
-            "ml_text_confidence": 0,
+            "ml_text_confidence": 0.50,  # ✅ Increased from 0 to 0.50
             "ml_prediction": "error",
             "reasoning": f"ML model encountered error: {str(e)}",
             "error": str(e)

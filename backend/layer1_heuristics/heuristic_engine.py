@@ -32,7 +32,21 @@ def run_heuristics(data):
         score += 20
         flags.append("strong_phishing")
 
-    confidence = min(score / 100, 1.0)
+    # ✅ IMPROVED CONFIDENCE: Base on number of flags + score strength
+    # Number of flags detected = more certain
+    flag_count = len(flags)
+    score_strength = min(score / 100, 1.0)  # Normalize score
+
+    # Confidence increases with more flags and higher scores
+    if flag_count >= 3:
+        confidence = min(0.85 + (flag_count * 0.05), 1.0)  # 3+ flags = 0.85-0.95
+    elif flag_count == 2:
+        confidence = min(0.70 + (score_strength * 0.15), 1.0)  # 2 flags = 0.70-0.85
+    elif flag_count == 1:
+        confidence = min(0.50 + (score_strength * 0.25), 1.0)  # 1 flag = 0.50-0.75
+    else:
+        confidence = min(0.40 + (score_strength * 0.30), 1.0)  # No flags = 0.40-0.70
+
     score = min(int(score), 100)
 
     return {
