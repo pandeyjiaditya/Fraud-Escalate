@@ -2,8 +2,8 @@ import requests
 import json
 
 OLLAMA_URL = "http://localhost:11434/api/chat"
-OLLAMA_TIMEOUT = 60  # 60 second timeout (llama3 is slower)
-OLLAMA_MODEL = "llama3:latest"  # Use llama3:latest instead of just llama3
+OLLAMA_TIMEOUT = 60  # 60 second timeout (mistral response time)
+OLLAMA_MODEL = "mistral"  # Using mistral model
 
 
 def call_ollama(prompt):
@@ -45,7 +45,7 @@ def call_ollama(prompt):
         return message_content
 
     except requests.Timeout:
-        print("[!] Ollama request timed out (30s)")
+        print("[!] Ollama request timed out (60s)")
         return json.dumps({
             "error": "Ollama timeout",
             "llm_score": 50,

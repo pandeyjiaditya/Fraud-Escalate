@@ -20,9 +20,14 @@ from layer1_heuristics.heuristic_engine import run_heuristics
 # Layer 2
 from layer2_ml.ml_engine import run_ml_model
 
-# Layer 3 (LLM) - Now consolidated into single unified call
-from layer3_llm.llm_scorer import run_llm_scorer
-from layer3_llm.llm_engine import run_llm_explanation
+# Layer 3 (LLM) - Unified JSON Pipeline
+from layer3_llm.pipeline_orchestrator import (
+    build_structured_pipeline,
+    run_layer3_reasoning,
+    calculate_final_score,
+    run_final_summary,
+    convert_pipeline_to_response
+)
 
 # Risk Engine
 from risk_engine.decision_engine import make_decision
@@ -228,44 +233,52 @@ def analyze(text: str):
             layer2_output["url_ml_score"] = url_analysis_input.get("url_ml_score", 0)
             layer2_output["url_ml_confidence"] = url_analysis_input.get("url_ml_confidence", 0)
 
-        # 🔹 Step 4: Layer 3 UNIFIED LLM (FIRST LLM CALL)
-        print("[*] Running Layer 3 (UNIFIED): LLM Reasoning + Scoring...")
-        layer3_scoring = None
+        # 🔹 Step 3: Build Structured JSON Pipeline
+        print("[*] Step 3: Building structured JSON pipeline...")
+        pipeline_json = build_structured_pipeline(
+            input_content=layer0_output.get("clean_text", ""),
+            layer1_output=layer1_output,
+            layer2_output=layer2_output
+        )
 
+        # 🔹 Step 4: Layer 3 FIRST LLM CALL (Reasoning)
+        print("[*] Step 4 (FIRST LLM CALL): Running Layer 3 analysis...")
         try:
-            layer3_scoring = run_llm_scorer(
-                text=layer0_output.get("clean_text", ""),
-                layer0=layer0_output,
-                layer1=layer1_output,
-                layer2=layer2_output
-            )
+            pipeline_json = run_layer3_reasoning(pipeline_json)
         except Exception as e:
-            print(f"[!] Layer 3 scoring error: {e}")
-            layer3_scoring = {
-                "summary_1": f"Error analyzing heuristics: {str(e)}",
-                "summary_2": f"Error analyzing ML: {str(e)}",
-                "score_3": 50.0,
-                "confidence_3": 0
+            print(f"[!] Layer 3 reasoning error: {e}")
+            pipeline_json["layer_3"] = {
+                "score": 50.0,
+                "confidence": 0.3,
+                "reasoning": f"Error: {str(e)}"
             }
 
-        # Add LLM score to layer2 for Risk Engine fusion
-        layer2_output["llm_score"] = layer3_scoring.get("score_3", 0)
-        layer2_output["llm_confidence"] = layer3_scoring.get("confidence_3", 0)
+        # 🔹 Step 5: Scoring Engine (NO LLM - Aggregate)
+        print("[*] Step 5: Calculating final score...")
+        try:
+            pipeline_json = calculate_final_score(pipeline_json)
+        except Exception as e:
+            print(f"[!] Scoring error: {e}")
+            pipeline_json["final_score"] = 50.0
 
-        # Prepare meta info for context-aware scoring
+        # Add LLM score to layer2 for Risk Engine
+        layer2_output["llm_score"] = pipeline_json.get("layer_3", {}).get("score", 0)
+        layer2_output["llm_confidence"] = pipeline_json.get("layer_3", {}).get("confidence", 0)
+
+        # Calculate Risk Engine Final Score
+        print("[*] Running Risk Engine to calculate final risk score...")
         meta = {
             "has_url": url_analysis_input.get("has_urls", False),
             "ocr_used": input_data.get("type") in ["audio_transcribed", "file_pdf"],
             "ocr_quality": layer0_output.get("ocr_quality", 0.8)
         }
 
-        # 🔹 Step 5: Risk Engine (Final Decision with all layer signals)
         try:
             final_output = make_decision(layer1_output, layer2_output, context_type, meta)
         except Exception as e:
             print(f"[!] Risk Engine error: {e}")
             final_output = {
-                "risk_score": 50.0,
+                "risk_score": pipeline_json.get("final_score", 50.0),
                 "risk_level": "MEDIUM",
                 "risk_color": "orange",
                 "decision": "REVIEW",
@@ -274,34 +287,33 @@ def analyze(text: str):
                 "reasoning": f"Error in risk calculation: {str(e)}"
             }
 
-        # 🔹 Step 6: Layer 3 Part 2 (SECOND LLM CALL - Final Explanation)
+        # 🔹 Step 6: Layer 3 SECOND LLM CALL (Final Explanation)
+        print("[*] Step 6 (SECOND LLM CALL): Generating final explanation...")
         try:
-            layer3_explanation = run_llm_explanation(
-                text=layer0_output.get("clean_text", ""),
-                layer0=layer0_output,
-                layer1=layer1_output,
-                layer2=layer2_output,
-                layer3_scoring=layer3_scoring,
-                final=final_output
-            )
+            pipeline_json = run_final_summary(pipeline_json)
         except Exception as e:
-            print(f"[!] Layer 3 explanation error: {e}")
-            layer3_explanation = {
-                "explanation": f"Error generating explanation: {str(e)}"
-            }
+            print(f"[!] Final explanation error: {e}")
+            pipeline_json["final_summary"] = f"Analysis complete. Final risk score: {final_output.get('risk_score', 0)}/100"
+
+        # 🔹 Update final_output reasoning with LLM explanation
+        final_output["reasoning"] = pipeline_json.get("final_summary", final_output.get("reasoning", ""))
+
+        # 🔹 Convert Pipeline to Response Format
+        print("[*] Converting to response format...")
+        response = convert_pipeline_to_response(
+            pipeline_json=pipeline_json,
+            layer0_output=layer0_output,
+            layer1_output=layer1_output,
+            layer2_output=layer2_output,
+            input_data=input_data,
+            context_type=context_type,
+            final_output=final_output
+        )
 
         # Restore url_analysis to input_data for response
         input_data["metadata"]["url_analysis"] = url_analysis_input
 
-        return {
-            "input": input_data,
-            "layer0": layer0_output,
-            "layer1": layer1_output,
-            "layer2": layer2_output,
-            "layer3_scoring": layer3_scoring,
-            "final": final_output,
-            "layer3_explanation": layer3_explanation
-        }
+        return response
 
     except Exception as e:
         print(f"[!] CRITICAL ERROR in /analyze: {e}")
@@ -399,79 +411,58 @@ async def analyze_file(file: UploadFile = File(...)):
                     layer2_output["deepfake_score"] = deepfake_analysis_input.get("deepfake_score", 0) * 100
                     layer2_output["deepfake_confidence"] = deepfake_analysis_input.get("metadata", {}).get("deepfake_confidence", 0)
 
-                # 🔹 Step 5: Layer 3 UNIFIED LLM (FIRST LLM CALL)
-                print("[*] Running Layer 3 (UNIFIED): LLM Reasoning + Scoring...")
+                # 🔹 Step 3: Build Structured JSON Pipeline
+                print("[*] Step 3: Building structured JSON pipeline...")
+                pipeline_json = build_structured_pipeline(
+                    input_content=layer0_output.get("clean_text", ""),
+                    layer1_output=layer1_output,
+                    layer2_output=layer2_output
+                )
+
+                # 🔹 Step 4: Layer 3 FIRST LLM CALL (Reasoning)
+                print("[*] Step 4 (FIRST LLM CALL): Running Layer 3 analysis...")
                 try:
-                    layer3_scoring = run_llm_scorer(
-                        text=layer0_output.get("clean_text", ""),
-                        layer0=layer0_output,
-                        layer1=layer1_output,
-                        layer2=layer2_output
-                    )
+                    pipeline_json = run_layer3_reasoning(pipeline_json)
                 except Exception as e:
-                    print(f"[!] Layer 3 scoring error: {e}")
-                    layer3_scoring = {
-                        "summary_1": f"Error analyzing heuristics: {str(e)}",
-                        "summary_2": f"Error analyzing ML: {str(e)}",
-                        "score_3": 50.0,
-                        "confidence_3": 0
+                    print(f"[!] Layer 3 reasoning error: {e}")
+                    pipeline_json["layer_3"] = {
+                        "score": 50.0,
+                        "confidence": 0.3,
+                        "reasoning": f"Error: {str(e)}"
                     }
 
-                # Add LLM score to layer2 for Risk Engine fusion
-                layer2_output["llm_score"] = layer3_scoring.get("score_3", 0)
-                layer2_output["llm_confidence"] = layer3_scoring.get("confidence_3", 0)
-
-                # Prepare meta info for context-aware scoring
-                meta = {
-                    "has_url": url_analysis_input.get("has_urls", False),
-                    "ocr_used": input_data.get("type") in ["audio_transcribed", "file_pdf", "image_ocr"],
-                    "ocr_quality": layer0_output.get("ocr_quality", input_data.get("metadata", {}).get("ocr_quality", 0.8))
-                }
-
-                # 🔹 Step 6: Risk Engine (Final Decision with all layer signals)
+                # 🔹 Step 5: Scoring Engine (NO LLM - Aggregate)
+                print("[*] Step 5: Calculating final score...")
                 try:
-                    final_output = make_decision(layer1_output, layer2_output, context_type, meta)
+                    pipeline_json = calculate_final_score(pipeline_json)
                 except Exception as e:
-                    print(f"[!] Risk Engine error: {e}")
-                    final_output = {
-                        "risk_score": 50.0,
-                        "risk_level": "MEDIUM",
-                        "risk_color": "orange",
-                        "decision": "REVIEW",
-                        "confidence": 0.5,
-                        "context_type": context_type,
-                        "reasoning": f"Error in risk calculation: {str(e)}"
-                    }
+                    print(f"[!] Scoring error: {e}")
+                    pipeline_json["final_score"] = 50.0
 
-                # 🔹 Step 7: Layer 3 Part 2 (SECOND LLM CALL - Final Explanation)
+                # 🔹 Step 6: Layer 3 SECOND LLM CALL (Final Explanation)
+                print("[*] Step 6 (SECOND LLM CALL): Generating final explanation...")
                 try:
-                    layer3_explanation = run_llm_explanation(
-                        text=layer0_output.get("clean_text", ""),
-                        layer0=layer0_output,
-                        layer1=layer1_output,
-                        layer2=layer2_output,
-                        layer3_scoring=layer3_scoring,
-                        final=final_output
-                    )
+                    pipeline_json = run_final_summary(pipeline_json)
                 except Exception as e:
-                    print(f"[!] Layer 3 explanation error: {e}")
-                    layer3_explanation = {
-                        "explanation": f"Error generating explanation: {str(e)}"
-                    }
+                    print(f"[!] Final explanation error: {e}")
+                    pipeline_json["final_summary"] = f"Analysis complete. Final risk score: {pipeline_json.get('final_score', 0)}/100"
+
+                # 🔹 Convert Pipeline to Response Format
+                print("[*] Converting to response format...")
+                response = convert_pipeline_to_response(
+                    pipeline_json=pipeline_json,
+                    layer0_output=layer0_output,
+                    layer1_output=layer1_output,
+                    layer2_output=layer2_output,
+                    input_data=input_data,
+                    context_type=context_type
+                )
 
                 # Restore url_analysis and deepfake_analysis to input_data for response
                 input_data["metadata"]["url_analysis"] = url_analysis_input
                 input_data["metadata"]["deepfake_analysis"] = deepfake_analysis_input
 
-                return {
-                    "input": input_data,
-                    "layer0": layer0_output,
-                    "layer1": layer1_output,
-                    "layer2": layer2_output,
-                    "layer3_scoring": layer3_scoring,
-                    "final": final_output,
-                    "layer3_explanation": layer3_explanation
-                }
+                return response
             else:
                 # For image/video, return basic info (no fraud analysis yet)
                 return {
