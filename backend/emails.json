@@ -1,0 +1,52 @@
+[
+  {
+    "id": 1,
+    "subject": "RE: Password Expiration Notice - Action Required",
+    "body": "Team,\n\nJust a quick heads up regarding the automated security email you all received this morning. Your active directory passwords will indeed expire at midnight tonight as part of our quarterly IT compliance audit. You must verify and update your credentials prior to the deadline to maintain access to the internal VPN.\n\nPlease execute the update via the standard internal IT intranet dashboard. If you get locked out, call the help desk at extension 4499.\n\nRegards,\nDavid\nIT Administration"
+  },
+  {
+    "id": 2,
+    "subject": "Receipt for your recent Apple App Store purchase",
+    "body": "Dear Customer,\n\nYour purchase of the 'Pro Video Editor Suite' (1-Year Subscription) for $199.99 was successful. This amount will be billed to your card on file.\n\nIf you did not authorize this purchase or wish to cancel your subscription, please visit the resolution center immediately to process a refund: https://www.apple.com/support/refund\n\nThank you,\nBilling Support"
+  },
+  {
+    "id": 3,
+    "subject": "Re: Database Migration and API Integration",
+    "body": "Hey Sarah,\n\nI just pushed the latest commit for the new payment gateway integration to the staging branch. It looks like the webhook is finally communicating correctly with the backend.\n\nAlso, just in case you need to run some manual tests against the live database from your local machine this weekend, here is the production Stripe key: sk_live_51MabcDEFghiJKLmnoPQRstuVWXyz1234567890\n\nLet me know if the unit tests pass on your end.\n\nThanks,\nDavid"
+  },
+  {
+    "id": 4,
+    "subject": "Important: Remote Work Network Configuration Update",
+    "body": "To all remote staff:\n\nDue to the recent updates to our corporate firewall, you must run the attached network configuration script to update your local routing tables. Failure to run this patch will prevent you from accessing the company server by tomorrow morning.\n\nPlease download and execute 'Network_Update_v2.bat' from the attached secure archive. No further action is required once the script confirms completion.\n\nThank you,\nIT Security Team"
+  },
+  {
+    "id": 5,
+    "subject": "MANDATORY: Server migration schedule and password reset",
+    "body": "All Employees,\n\nWe are executing the final phase of the corporate server migration this weekend. Your current OWA passwords will be suspended on Friday at 5:00 PM. You must log into the local domain controller and reset your credentials using the 'Password_Update_Utility' available on the shared network drive before leaving the office today.\n\nFailure to comply will result in a loss of email access on Monday morning.\n\nRegards,\nIT Operations"
+  },
+  {
+    "id": 6,
+    "subject": "Fwd: AWS deployment scripts - review needed",
+    "body": "Team,\n\nPlease review the attached deployment scripts for the new cloud infrastructure. I've hardcoded the credentials temporarily for the staging environment so we can test the build pipeline without dealing with the secrets manager for now.\n\nAWS_ACCESS_KEY_ID=AKIAIOSFODNN7EXAMPLE\nAWS_SECRET_ACCESS_KEY=wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY\n\nMake sure to rotate these before we push to production next week.\n\nThanks,\nDevOps Lead"
+  },
+  {
+    "id": 7,
+    "subject": "Urgent: Updated Employee Benefits Policy 2026",
+    "body": "Dear Employee,\n\nAttached is the revised 2026 Corporate Benefits Policy, which includes critical updates to your healthcare coverage and retirement contributions. Please download and review the enclosed HTML document. You will be required to acknowledge receipt of these changes by the end of the business day to ensure your benefits remain active.\n\nRegards,\nHuman Resources"
+  },
+  {
+    "id": 8,
+    "subject": "URGENT BUSINESS PROPOSAL AND FUNDS TRANSFER",
+    "body": "Strictly Confidential,\n\nI am the manager of the auditing department of a prime bank here. I have a highly confidential business proposition involving the transfer of $15,500,000.00 (Fifteen Million Five Hundred Thousand US Dollars) into a secure offshore account. If you are willing to act as the foreign beneficiary, you will be entitled to 30% of the total sum.\n\nPlease reply urgently with your private telephone number and banking details so we may commence the transaction immediately. \n\nYours faithfully,\nMr. Charles"
+  },
+  {
+    "id": 9,
+    "subject": "URGENT: Authorization required for Project Alpha Wire Transfer",
+    "body": "John,\n\nWe need immediate authorization to release the $450,000 wire transfer for the Project Alpha vendor acquisition. The cutoff time for the clearing house is in exactly 45 minutes. Please reply to this email with your formal approval code so accounting can release the funds.\n\nDo not delay, or we will incur significant late penalties.\n\nThanks,\nSarah\nVP of Finance"
+  },
+  {
+    "id": 10,
+    "subject": "Re: Auth module failing in staging?",
+    "body": "Hey team,\n\nI'm looking at the build logs for the new authentication module and it keeps throwing a 401 Unauthorized error when hitting the GitHub API. I temporarily hardcoded a personal access token into the config to test if it was an environment variable issue.\n\nToken: ghp_aBcDeFgHiJkLmNoPqRsTuVwXyZ1234567890\n\nIt still failed. Can someone else pull the branch and see if they reproduce the error?\n\nBest,\nMark"
+  }
+]

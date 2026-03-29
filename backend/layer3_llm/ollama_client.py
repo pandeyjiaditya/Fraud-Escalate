@@ -2,7 +2,8 @@ import requests
 import json
 
 OLLAMA_URL = "http://localhost:11434/api/chat"
-OLLAMA_TIMEOUT = 30  # 30 second timeout
+OLLAMA_TIMEOUT = 60  # 60 second timeout (llama3 is slower)
+OLLAMA_MODEL = "llama3:latest"  # Use llama3:latest instead of just llama3
 
 
 def call_ollama(prompt):
@@ -14,7 +15,7 @@ def call_ollama(prompt):
         response = requests.post(
             OLLAMA_URL,
             json={
-                "model": "llama3",
+                "model": OLLAMA_MODEL,
                 "messages": [
                     {"role": "user", "content": prompt}
                 ],
@@ -38,8 +39,8 @@ def call_ollama(prompt):
         result = response.json()
         message_content = result.get("message", {}).get("content", "")
 
-        print(f"[✓] Ollama response received ({len(message_content)} chars)")
-        print(f"[✓] Response preview: {message_content[:200]}...")
+        print(f"[+] Ollama response received ({len(message_content)} chars)")
+        print(f"[+] Response preview: {message_content[:200]}...")
 
         return message_content
 

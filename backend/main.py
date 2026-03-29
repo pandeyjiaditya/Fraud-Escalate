@@ -6,6 +6,7 @@ from pathlib import Path
 import subprocess
 from concurrent.futures import ThreadPoolExecutor
 import threading
+import json
 
 # Input Layer
 from input_layer.input_handler import process_text_input, process_file_input
@@ -571,3 +572,64 @@ async def analyze_file(file: UploadFile = File(...)):
         # Cleanup: Remove temporary file
         if file_path.exists():
             file_path.unlink()
+
+
+# -----------------------------
+# EMAIL MANAGEMENT ENDPOINTS
+# -----------------------------
+def load_emails():
+    """Load emails from JSON file"""
+    try:
+        with open("emails.json", "r") as f:
+            return json.load(f)
+    except FileNotFoundError:
+        return []
+
+
+@app.get("/emails")
+def get_all_emails():
+    """Get all emails from JSON file"""
+    emails = load_emails()
+    return {
+        "count": len(emails),
+        "emails": emails
+    }
+
+
+@app.get("/emails/{email_id}")
+def get_email(email_id: int):
+    """Get a specific email by ID"""
+    emails = load_emails()
+    for email in emails:
+        if email["id"] == email_id:
+            return email
+    return {"error": "Email not found"}
+
+
+@app.post("/emails/{email_id}/analyze")
+def analyze_email(email_id: int):
+    """Analyze a specific email - sends only body through pipeline"""
+    emails = load_emails()
+    email = None
+    for e in emails:
+        if e["id"] == email_id:
+            email = e
+            break
+
+    if not email:
+        return {"error": "Email not found"}
+
+    # Send ONLY the body through the analysis pipeline
+    text = email['body']
+
+    # Call the main analyze function with just the body
+    response = analyze(text)
+
+    # Add email metadata to response
+    response["email"] = {
+        "id": email["id"],
+        "subject": email["subject"],
+        "body": email["body"]
+    }
+
+    return response
